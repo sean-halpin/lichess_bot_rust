@@ -6,6 +6,7 @@ use serde_json::Value;
 use std::io::BufRead;
 use std::io::Write;
 use std::net::TcpStream;
+mod chess;
 
 fn try_parse_json(json_string: &str) -> serde_json::Result<Value> {
     let v: Value = serde_json::from_str(json_string)?;
@@ -110,5 +111,6 @@ async fn subscribe() {
 
 #[tokio::main]
 async fn main() {
+    Board();
     subscribe().await;
 }
