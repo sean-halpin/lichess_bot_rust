@@ -6,11 +6,20 @@ use std::io::BufReader;
 use std::io::Write;
 use std::net::TcpStream;
 
-fn untyped_json(json_string: &str) -> serde_json::Result<()> {
+fn try_parse_json(json_string: &str) -> serde_json::Result<Value> {
     let v: Value = serde_json::from_str(json_string)?;
-    println!("Message Type: {}", v["type"]);
-    Ok(())
+    return Ok(v);
 }
+
+// Accept Challenge
+
+// > POST /api/challenge/MUlGTvsX/accept HTTP/1.1
+// > Host: lichess.org
+// > User-Agent: curl/7.68.0
+// > Accept: */*
+// > Authorization: Bearer {}
+// > 
+
 
 fn connect_tls_stream() -> Result<TlsStream<TcpStream>, String> {
     println!("TLS connect starting");
@@ -43,8 +52,19 @@ pub async fn subscribe() {
     let mut buf = String::new();
     while stream_reader.read_line(&mut buf).unwrap_or(0) > 0 {
         println!("{}", &buf);
-        match untyped_json(&buf) {
-            Ok(_) => println!("JSON found"),
+        match try_parse_json(&buf) {
+            Ok(v) => {
+                println!("JSON found");
+                let msg_type = v["type"].to_string();
+                match msg_type.as_ref() {
+                    r#""challenge""# => {
+                        println!("Challenge Message Type");
+                    }
+                    _ => {
+                        println!("Unknown Message Type: {}", msg_type);
+                    }
+                }
+            }
             Err(_) => println!("Not JSON"),
         };
         buf.clear();
