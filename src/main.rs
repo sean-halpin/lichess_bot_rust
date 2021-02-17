@@ -48,7 +48,6 @@ async fn play_game(game_id: String) {
         println!("{}", &buf);
         match try_parse_json(&buf) {
             Ok(v) => {
-                println!("JSON found");
                 let msg_type = v["type"].to_string();
                 match msg_type.as_ref() {
                     r#""gameFull""# => {}
@@ -58,6 +57,7 @@ async fn play_game(game_id: String) {
                             println!("{}", next_move);
                             board.move_piece(next_move.to_string());
                         }
+                        println!("{}", board);
                         let bot_move = board.find_next_move();
                         let auth_header_value = format!("Bearer {}", lichess_api_token);
                         let client = reqwest::Client::builder().build().unwrap();
@@ -97,7 +97,6 @@ async fn subscribe() {
         println!("{}", &buf);
         match try_parse_json(&buf) {
             Ok(v) => {
-                // println!("JSON found");
                 let msg_type = v["type"].to_string();
                 match msg_type.as_ref() {
                     r#""challenge""# => {
@@ -117,9 +116,7 @@ async fn subscribe() {
                         let game_id = v["game"]["id"].as_str().unwrap().to_owned();
                         tokio::spawn(async move { play_game(game_id).await });
                     }
-                    _ => {
-                        () // println!("Event Stream - Unknown Message Type: {}", msg_type);
-                    }
+                    _ => (),
                 }
             }
             Err(_) => (),

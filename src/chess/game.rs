@@ -1,46 +1,5 @@
+use colored::*;
 use std::fmt;
-
-fn algebraic_to_index(c: &char) -> usize {
-    return match c {
-        'a' | '1' => 0,
-        'b' | '2' => 1,
-        'c' | '3' => 2,
-        'd' | '4' => 3,
-        'e' | '5' => 4,
-        'f' | '6' => 5,
-        'g' | '7' => 6,
-        'h' | '8' => 7,
-        _ => usize::MAX,
-    };
-}
-
-fn index_to_column(c: usize) -> char {
-    return match c {
-        0 => 'a',
-        1 => 'b',
-        2 => 'c',
-        3 => 'd',
-        4 => 'e',
-        5 => 'f',
-        6 => 'g',
-        7 => 'h',
-        _ => ' ',
-    };
-}
-
-fn index_to_row(r: usize) -> char {
-    return match r {
-        0 => '1',
-        1 => '2',
-        2 => '3',
-        3 => '4',
-        4 => '5',
-        5 => '6',
-        6 => '7',
-        7 => '8',
-        _ => ' ',
-    };
-}
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Team {
@@ -72,13 +31,23 @@ impl Piece {
 
 impl std::fmt::Display for Piece {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.rank {
-            Rank::King => write!(f, "K"),
-            Rank::Queen => write!(f, "Q"),
-            Rank::Rook => write!(f, "R"),
-            Rank::Knight => write!(f, "N"),
-            Rank::Bishop => write!(f, "B"),
-            Rank::Pawn => write!(f, "P"),
+        match self.team {
+            Team::White => match self.rank {
+                Rank::King => write!(f, "{}", "K".green()),
+                Rank::Queen => write!(f, "{}", "Q".green()),
+                Rank::Rook => write!(f, "{}", "R".green()),
+                Rank::Knight => write!(f, "{}", "N".green()),
+                Rank::Bishop => write!(f, "{}", "B".green()),
+                Rank::Pawn => write!(f, "{}", "P".green()),
+            },
+            Team::Black => match self.rank {
+                Rank::King => write!(f, "{}", "K".red()),
+                Rank::Queen => write!(f, "{}", "Q".red()),
+                Rank::Rook => write!(f, "{}", "R".red()),
+                Rank::Knight => write!(f, "{}", "N".red()),
+                Rank::Bishop => write!(f, "{}", "B".red()),
+                Rank::Pawn => write!(f, "{}", "P".red()),
+            },
         }
     }
 }
@@ -94,6 +63,65 @@ impl Square {
     }
     fn with_piece(piece: Piece) -> Self {
         Square { piece: Some(piece) }
+    }
+    fn algebraic_to_index(c: &char) -> usize {
+        return match c {
+            'a' | '1' => 0,
+            'b' | '2' => 1,
+            'c' | '3' => 2,
+            'd' | '4' => 3,
+            'e' | '5' => 4,
+            'f' | '6' => 5,
+            'g' | '7' => 6,
+            'h' | '8' => 7,
+            _ => usize::MAX,
+        };
+    }
+    fn index_to_column(c: usize) -> char {
+        return match c {
+            0 => 'a',
+            1 => 'b',
+            2 => 'c',
+            3 => 'd',
+            4 => 'e',
+            5 => 'f',
+            6 => 'g',
+            7 => 'h',
+            _ => ' ',
+        };
+    }
+    fn index_to_row(r: usize) -> char {
+        return match r {
+            0 => '1',
+            1 => '2',
+            2 => '3',
+            3 => '4',
+            4 => '5',
+            5 => '6',
+            6 => '7',
+            7 => '8',
+            _ => ' ',
+        };
+    }
+    fn coords_to_str(
+        from_column: usize,
+        from_row: usize,
+        to_column: usize,
+        to_row: usize,
+    ) -> String {
+        let mut result = String::new();
+        result.push(Square::index_to_column(from_column));
+        result.push(Square::index_to_row(from_row));
+        result.push(Square::index_to_column(to_column));
+        result.push(Square::index_to_row(to_row));
+        return result;
+    }
+    fn str_to_coords(algebraic: String) -> (usize, usize, usize, usize) {
+        let index_vec: Vec<usize> = algebraic
+            .chars()
+            .map(|c| Square::algebraic_to_index(&c))
+            .collect();
+        return (index_vec[0], index_vec[1], index_vec[2], index_vec[3]);
     }
 }
 
@@ -162,11 +190,7 @@ impl Board {
     }
 
     pub fn move_piece(&mut self, next_move: String) {
-        let char_vec: Vec<char> = next_move.chars().collect();
-        let from_col = algebraic_to_index(&char_vec[0]);
-        let from_row = algebraic_to_index(&char_vec[1]);
-        let to_col = algebraic_to_index(&char_vec[2]);
-        let to_row = algebraic_to_index(&char_vec[3]);
+        let (from_col, from_row, to_col, to_row) = Square::str_to_coords(next_move);
         match &self.squares[from_row][from_col].piece {
             Some(p) => {
                 self.squares[to_row][to_col].piece = Some(p.clone());
@@ -189,23 +213,17 @@ impl Board {
                             match piece.rank {
                                 Rank::Pawn => match piece.team {
                                     Team::White => {
-                                        let mut result = String::new();
-                                        result.push(index_to_column(column));
-                                        result.push(index_to_row(row));
-                                        result.push(index_to_column(column));
-                                        result.push(index_to_row(row + 1));
-                                        return result;
+                                        return Square::coords_to_str(column, row, column, row + 1);
                                     }
                                     Team::Black => {
-                                        let mut result = String::new();
-                                        result.push(index_to_column(column));
-                                        result.push(index_to_row(row));
-                                        result.push(index_to_column(column));
-                                        result.push(index_to_row(row - 1));
-                                        return result;
+                                        return Square::coords_to_str(column, row, column, row - 1);
                                     }
                                 },
-                                _ => {}
+                                Rank::King => {}
+                                Rank::Queen => {}
+                                Rank::Rook => {}
+                                Rank::Knight => {}
+                                Rank::Bishop => {}
                             }
                         }
                     }
