@@ -110,13 +110,5 @@ async fn subscribe() {
 
 #[tokio::main]
 async fn main() {
-    let mut board = chess::Board::new();
-    println!("{}", board);
-    board.move_piece("e2e4".to_string());
-    println!("{}", board);
-    let next_move = board.find_next_move();
-    println!("{}", next_move);
-    board.move_piece(next_move);
-    println!("{}", board);
-    // subscribe().await;
+    subscribe().await;
 }

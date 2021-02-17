@@ -233,3 +233,20 @@ impl std::fmt::Display for Board {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::chess::Board;
+
+    #[test]
+    fn create_chess_board() {
+        let mut board = Board::new();
+        println!("{}", board);
+        board.move_piece("e2e4".to_string());
+        println!("{}", board);
+        let next_move = board.find_next_move();
+        println!("{}", next_move);
+        board.move_piece(next_move);
+        println!("{}", board);
+    }
+}
