@@ -14,7 +14,35 @@ fn algebraic_to_index(c: &char) -> usize {
     };
 }
 
-#[derive(Clone, Debug)]
+fn index_to_column(c: usize) -> char {
+    return match c {
+        0 => 'a',
+        1 => 'b',
+        2 => 'c',
+        3 => 'd',
+        4 => 'e',
+        5 => 'f',
+        6 => 'g',
+        7 => 'h',
+        _ => ' ',
+    };
+}
+
+fn index_to_row(r: usize) -> char {
+    return match r {
+        0 => '1',
+        1 => '2',
+        2 => '3',
+        3 => '4',
+        4 => '5',
+        5 => '6',
+        6 => '7',
+        7 => '8',
+        _ => ' ',
+    };
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum Team {
     White,
     Black,
@@ -36,6 +64,12 @@ pub struct Piece {
     rank: Rank,
 }
 
+impl Piece {
+    fn new(team: Team, rank: Rank) -> Self {
+        Piece { team, rank }
+    }
+}
+
 impl std::fmt::Display for Piece {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.rank {
@@ -46,12 +80,6 @@ impl std::fmt::Display for Piece {
             Rank::Bishop => write!(f, "B"),
             Rank::Pawn => write!(f, "P"),
         }
-    }
-}
-
-impl Piece {
-    fn new(team: Team, rank: Rank) -> Self {
-        Piece { team, rank }
     }
 }
 
@@ -69,8 +97,9 @@ impl Square {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Board {
+    pub next_to_move: Team,
     pub squares: Vec<Vec<Square>>,
 }
 
@@ -126,7 +155,10 @@ impl Board {
                 }
             }
         }
-        Board { squares }
+        Board {
+            next_to_move: Team::White,
+            squares,
+        }
     }
 
     pub fn move_piece(&mut self, next_move: String) {
@@ -142,6 +174,46 @@ impl Board {
             }
             None => (),
         }
+        match &self.next_to_move {
+            Team::White => self.next_to_move = Team::Black,
+            Team::Black => self.next_to_move = Team::White,
+        }
+    }
+
+    pub fn find_next_move(&mut self) -> String {
+        for row in (0..self.squares.len()).rev() {
+            for column in 0..self.squares[row].len() {
+                match &self.squares[row][column].piece {
+                    Some(piece) => {
+                        if piece.team == self.next_to_move {
+                            match piece.rank {
+                                Rank::Pawn => match piece.team {
+                                    Team::White => {
+                                        let mut result = String::new();
+                                        result.push(index_to_column(column));
+                                        result.push(index_to_row(row));
+                                        result.push(index_to_column(column));
+                                        result.push(index_to_row(row + 1));
+                                        return result;
+                                    }
+                                    Team::Black => {
+                                        let mut result = String::new();
+                                        result.push(index_to_column(column));
+                                        result.push(index_to_row(row));
+                                        result.push(index_to_column(column));
+                                        result.push(index_to_row(row - 1));
+                                        return result;
+                                    }
+                                },
+                                _ => {}
+                            }
+                        }
+                    }
+                    None => (),
+                }
+            }
+        }
+        return "".to_string();
     }
 }
 

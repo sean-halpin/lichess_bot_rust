@@ -50,7 +50,6 @@ async fn play_game(game_id: String) {
                 println!("JSON found");
                 let msg_type = v["type"].to_string();
                 match msg_type.as_ref() {
-                    // {"id":"z3gxFMhD","variant":{"key":"standard","name":"Standard","short":"Std"},"clock":{"initial":600000,"increment":30000},"speed":"classical","perf":{"name":"Classical"},"rated":false,"createdAt":1613505004393,"white":{"id":"ajedrez_87","name":"ajedrez_87","title":null,"rating":1500,"provisional":true},"black":{"id":"gambinobot","name":"gambinobot","title":"BOT","rating":1500,"provisional":true},"initialFen":"startpos","type":"gameFull","state":{"type":"gameState","moves":"","wtime":600000,"btime":600000,"winc":30000,"binc":30000,"wdraw":false,"bdraw":false,"status":"started"}}
                     r#""gameFull""# => {}
                     r#""gameState""# => {}
                     _ => {
@@ -115,5 +114,9 @@ async fn main() {
     println!("{}", board);
     board.move_piece("e2e4".to_string());
     println!("{}", board);
-    subscribe().await;
+    let next_move = board.find_next_move();
+    println!("{}", next_move);
+    board.move_piece(next_move);
+    println!("{}", board);
+    // subscribe().await;
 }
