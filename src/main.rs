@@ -1,3 +1,5 @@
+mod chess;
+use crate::chess::Board;
 use bufstream::BufStream;
 use native_tls::TlsConnector;
 use native_tls::TlsStream;
@@ -6,7 +8,6 @@ use serde_json::Value;
 use std::io::BufRead;
 use std::io::Write;
 use std::net::TcpStream;
-mod chess;
 
 fn try_parse_json(json_string: &str) -> serde_json::Result<Value> {
     let v: Value = serde_json::from_str(json_string)?;
@@ -51,7 +52,26 @@ async fn play_game(game_id: String) {
                 let msg_type = v["type"].to_string();
                 match msg_type.as_ref() {
                     r#""gameFull""# => {}
-                    r#""gameState""# => {}
+                    r#""gameState""# => {
+                        let mut board = Board::new();
+                        for next_move in v["moves"].as_str().unwrap().split_whitespace() {
+                            println!("{}", next_move);
+                            board.move_piece(next_move.to_string());
+                        }
+                        let bot_move = board.find_next_move();
+                        let auth_header_value = format!("Bearer {}", lichess_api_token);
+                        let client = reqwest::Client::builder().build().unwrap();
+                        let endpoint = format!(
+                            "https://lichess.org/api/bot/game/{}/move/{}",
+                            game_id, bot_move
+                        );
+                        let _res = client
+                            .post(&endpoint)
+                            .header(header::AUTHORIZATION, auth_header_value)
+                            .send()
+                            .await
+                            .unwrap();
+                    }
                     _ => {
                         println!("Game Stream - Unknown Message Type: {}", msg_type);
                     }
