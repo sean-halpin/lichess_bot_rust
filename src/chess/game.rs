@@ -1,4 +1,3 @@
-#[macro_use]
 use colored::*;
 use std::fmt;
 
@@ -62,17 +61,19 @@ pub struct Location {
 
 impl Location {
     fn new(row: isize, column: isize) -> Self {
-        if row < 0 || row > 7 || column < 0 || column > 7 {
+        println!("{}:{}", row, column);
+        if (row >= 0) || (row <= 7) || (column >= 0) || (column <= 7) {
             return Location {
                 row,
                 column,
                 valid_location: true,
             };
-        }
-        Location {
-            row,
-            column,
-            valid_location: false,
+        } else {
+            return Location {
+                row,
+                column,
+                valid_location: false,
+            };
         }
     }
     fn algebraic_to_index(c: &char) -> usize {
@@ -85,7 +86,7 @@ impl Location {
             'f' | '6' => 5,
             'g' | '7' => 6,
             'h' | '8' => 7,
-            _ => usize::MAX,
+            _ => 99,
         };
     }
     fn index_to_column(c: usize) -> char {
@@ -98,7 +99,7 @@ impl Location {
             5 => 'f',
             6 => 'g',
             7 => 'h',
-            _ => ' ',
+            _ => '9',
         };
     }
     fn index_to_row(r: usize) -> char {
@@ -111,7 +112,7 @@ impl Location {
             5 => '6',
             6 => '7',
             7 => '8',
-            _ => ' ',
+            _ => '9',
         };
     }
     fn coords_to_str(
@@ -132,7 +133,6 @@ impl Location {
             .chars()
             .map(|c| Location::algebraic_to_index(&c))
             .collect();
-        println!("{:?}", index_vec);
         return (index_vec[0], index_vec[1], index_vec[2], index_vec[3]);
     }
 }
@@ -144,8 +144,11 @@ pub struct Move {
 }
 
 impl Move {
-    fn new(from: Location, to: Location) -> Self {
-        Move { from, to }
+    fn new(_board: &Board, from: Location, to: Location) -> Option<Self> {
+        if from.valid_location && to.valid_location {
+            return Some(Move { from, to });
+        }
+        return None;
     }
 }
 
@@ -168,6 +171,19 @@ impl Square {
 pub struct Board {
     pub next_to_move: Team,
     pub squares: Vec<Vec<Square>>,
+}
+
+#[derive(Clone, Debug)]
+pub enum Direction {
+    N,
+    S,
+    E,
+    W,
+    NW,
+    NE,
+    SW,
+    SE,
+    KNIGHT,
 }
 
 impl Board {
@@ -253,113 +269,204 @@ impl Board {
         }
     }
 
-    fn generate_all_possible_moves(&self, row: isize, column: isize, sqr: &Square) {
+    pub fn navigate(&self, dir: Direction, from: Location) -> Vec<Option<Move>> {
+        let mut moves: Vec<Option<Move>> = vec![];
+        let row = from.row;
+        let column = from.column;
+        let p = &self.squares[row as usize][column as usize]
+            .piece
+            .as_ref()
+            .unwrap();
+        let max_distance = match p.rank {
+            Rank::Knight => 0,
+            Rank::Pawn => 1,
+            Rank::King => 1,
+            Rank::Rook => 8,
+            Rank::Bishop => 8,
+            Rank::Queen => 8,
+        };
+        match p.rank {
+            Rank::Knight => {
+                let knight_moves: Vec<Vec<isize>> = vec![
+                    vec![1, 2],
+                    vec![1, -2],
+                    vec![2, 1],
+                    vec![2, -1],
+                    vec![-1, 2],
+                    vec![-1, -2],
+                    vec![-2, 1],
+                    vec![-2, -1],
+                ];
+                'outer: for row in 0..knight_moves.len() {
+                    for column in 0..knight_moves[row].len() {
+                        let to = Location::new(
+                            (row as isize) + knight_moves[row][column],
+                            (column as isize) + knight_moves[row][column],
+                        );
+                        // If we land out of bounds
+                        if !to.valid_location {
+                            break 'outer;
+                        }
+                        // If we land on a piece
+                        let land_on_piece =
+                            &self.squares[row as usize][column as usize].piece.is_some();
+                        if *land_on_piece {
+                            let piece = &self.squares[row as usize][column as usize]
+                                .piece
+                                .as_ref()
+                                .unwrap();
+                            // If we land on our own piece
+                            if piece.team == self.next_to_move {
+                                break 'outer;
+                            }
+                            let n = Move::new(self, from, to);
+                            moves.push(n);
+                            break 'outer;
+                        }
+                        let n = Move::new(self, from, to);
+                        moves.push(n);
+                    }
+                }
+            }
+            _ => {
+                'outerWorld: for row_delta in 1..max_distance {
+                    for column_delta in 1..max_distance {
+                        let to: Location;
+                        match &dir {
+                            Direction::N => to = Location::new(row + row_delta, column),
+                            Direction::S => to = Location::new(row - row_delta, column),
+                            Direction::E => to = Location::new(row, column + column_delta),
+                            Direction::W => to = Location::new(row, column - column_delta),
+                            Direction::NE => {
+                                to = Location::new(row + row_delta, column + column_delta)
+                            }
+                            Direction::NW => {
+                                to = Location::new(row + row_delta, column - column_delta)
+                            }
+                            Direction::SW => {
+                                to = Location::new(row - row_delta, column + column_delta)
+                            }
+                            Direction::SE => {
+                                to = Location::new(row - row_delta, column - column_delta)
+                            }
+                            _ => to = Location::new(-1, -1),
+                        }
+                        // If we land out of bounds
+                        if !to.valid_location {
+                            break 'outerWorld;
+                        }
+                        // If we land on a piece
+                        let land_on_piece =
+                            &self.squares[row as usize][column as usize].piece.is_some();
+                        if *land_on_piece {
+                            let piece = &self.squares[row as usize][column as usize]
+                                .piece
+                                .as_ref()
+                                .unwrap();
+                            // If we land on our own piece
+                            if piece.team == self.next_to_move {
+                                break 'outerWorld;
+                            }
+                            let n = Move::new(self, from, to);
+                            moves.push(n);
+                            break 'outerWorld;
+                        }
+                        let n = Move::new(self, from, to);
+                        moves.push(n);
+                    }
+                }
+            }
+        }
+        // println!("{:?}", moves);
+        return moves;
+    }
+
+    fn generate_all_possible_moves(&self, sqr: &Square) -> Vec<Move> {
         let from = sqr.location.clone();
-        let mut moves: Vec<Move> = vec![];
+        let mut moves: Vec<Option<Move>> = vec![];
+        // println!("{:?}", sqr);
         match &sqr.piece {
             Some(piece) => match piece.rank {
                 Rank::Pawn => match piece.team {
-                    Team::White => moves.push(Move::new(from, Location::new(row + 1, column))),
-                    Team::Black => moves.push(Move::new(from, Location::new(row - 1, column))),
+                    Team::White => {
+                        moves.append(&mut self.navigate(Direction::N, from));
+                    }
+                    Team::Black => {
+                        moves.append(&mut self.navigate(Direction::S, from));
+                    }
                 },
-                Rank::Knight => {
-                    moves.push(Move::new(from, Location::new(row + 1, column + 2)));
-                    moves.push(Move::new(from, Location::new(row + 1, column - 2)));
-                    moves.push(Move::new(from, Location::new(row + 2, column + 1)));
-                    moves.push(Move::new(from, Location::new(row + 2, column - 1)));
-                    moves.push(Move::new(from, Location::new(row - 1, column + 2)));
-                    moves.push(Move::new(from, Location::new(row - 1, column - 2)));
-                    moves.push(Move::new(from, Location::new(row - 2, column + 1)));
-                    moves.push(Move::new(from, Location::new(row - 2, column - 1)));
-                }
+                Rank::Knight => moves.append(&mut self.navigate(Direction::KNIGHT, from)),
                 Rank::King => {
-                    moves.push(Move::new(from, Location::new(row + 1, column - 1)));
-                    moves.push(Move::new(from, Location::new(row + 1, column)));
-                    moves.push(Move::new(from, Location::new(row + 1, column + 1)));
-                    moves.push(Move::new(from, Location::new(row, column - 1)));
-                    moves.push(Move::new(from, Location::new(row, column + 1)));
-                    moves.push(Move::new(from, Location::new(row - 1, column - 1)));
-                    moves.push(Move::new(from, Location::new(row - 1, column)));
-                    moves.push(Move::new(from, Location::new(row - 1, column + 1)));
+                    moves.append(&mut self.navigate(Direction::N, from));
+                    moves.append(&mut self.navigate(Direction::S, from));
+                    moves.append(&mut self.navigate(Direction::E, from));
+                    moves.append(&mut self.navigate(Direction::W, from));
+                    moves.append(&mut self.navigate(Direction::NW, from));
+                    moves.append(&mut self.navigate(Direction::NE, from));
+                    moves.append(&mut self.navigate(Direction::SW, from));
+                    moves.append(&mut self.navigate(Direction::SE, from));
                 }
                 Rank::Rook => {
-                    for row_delta in 0..8 {
-                        moves.push(Move::new(from, Location::new(row + row_delta, column)));
-                        moves.push(Move::new(from, Location::new(row - row_delta, column)));
-                    }
-                    for column_delta in 0..8 {
-                        moves.push(Move::new(from, Location::new(row, column + column_delta)));
-                        moves.push(Move::new(from, Location::new(row, column - column_delta)));
-                    }
+                    moves.append(&mut self.navigate(Direction::N, from));
+                    moves.append(&mut self.navigate(Direction::S, from));
+                    moves.append(&mut self.navigate(Direction::E, from));
+                    moves.append(&mut self.navigate(Direction::W, from));
                 }
                 Rank::Bishop => {
-                    for row_delta in 0..8 {
-                        for column_delta in 0..8 {
-                            moves.push(Move::new(
-                                from,
-                                Location::new(row + row_delta, column + column_delta),
-                            ));
-                            moves.push(Move::new(
-                                from,
-                                Location::new(row + row_delta, column - column_delta),
-                            ));
-                            moves.push(Move::new(
-                                from,
-                                Location::new(row - row_delta, column + column_delta),
-                            ));
-                            moves.push(Move::new(
-                                from,
-                                Location::new(row - row_delta, column - column_delta),
-                            ));
-                        }
-                    }
+                    moves.append(&mut self.navigate(Direction::NW, from));
+                    moves.append(&mut self.navigate(Direction::NE, from));
+                    moves.append(&mut self.navigate(Direction::SW, from));
+                    moves.append(&mut self.navigate(Direction::SE, from));
                 }
                 Rank::Queen => {
-                    for row_delta in 0..8 {
-                        for column_delta in 0..8 {
-                            moves.push(Move::new(
-                                from,
-                                Location::new(row + row_delta, column + column_delta),
-                            ));
-                            moves.push(Move::new(
-                                from,
-                                Location::new(row + row_delta, column - column_delta),
-                            ));
-                            moves.push(Move::new(
-                                from,
-                                Location::new(row - row_delta, column + column_delta),
-                            ));
-                            moves.push(Move::new(
-                                from,
-                                Location::new(row - row_delta, column - column_delta),
-                            ));
-                        }
-                    }
+                    moves.append(&mut self.navigate(Direction::N, from));
+                    moves.append(&mut self.navigate(Direction::S, from));
+                    moves.append(&mut self.navigate(Direction::E, from));
+                    moves.append(&mut self.navigate(Direction::W, from));
+                    moves.append(&mut self.navigate(Direction::NW, from));
+                    moves.append(&mut self.navigate(Direction::NE, from));
+                    moves.append(&mut self.navigate(Direction::SW, from));
+                    moves.append(&mut self.navigate(Direction::SE, from));
                 }
             },
             _ => {}
         }
+        return moves
+            .into_iter()
+            .filter(|m| m.is_some())
+            .map(|m| m.unwrap())
+            .filter(|m| m.to.valid_location)
+            .collect();
     }
 
     pub fn find_next_move(&mut self) -> String {
+        let mut all_moves = vec![];
         for row in (0..self.squares.len()).rev() {
             for column in 0..self.squares[row].len() {
                 let curr_square = &self.squares[row][column];
+                println!("sqr: {:?}", curr_square);
                 match &curr_square.piece {
                     Some(piece) => {
                         if piece.team == self.next_to_move {
-                            self.generate_all_possible_moves(
-                                row as isize,
-                                column as isize,
-                                &curr_square,
-                            );
+                            let mut result: Vec<Move> =
+                                self.generate_all_possible_moves(&curr_square);
+                            all_moves.append(&mut result);
                         }
                     }
                     None => (),
                 }
             }
         }
-        return "a7a6".to_string();
+        // println!("{:?}", all_moves);
+        let index = (rand::random::<f32>() * all_moves.len() as f32).floor() as usize;
+        let item = &all_moves[index];
+        println!("all_moves {:?}", all_moves);
+        return Location::coords_to_str(
+            item.from.column as usize,
+            item.from.row as usize,
+            item.to.column as usize,
+            item.to.row as usize,
+        );
     }
 }
 
@@ -389,6 +496,10 @@ mod tests {
         let mut board = Board::new();
         println!("{}", board);
         board.move_piece("e2e4".to_string());
+        println!("{}", board);
+        let next_move = board.find_next_move();
+        println!("{}", next_move);
+        board.move_piece(next_move);
         println!("{}", board);
         let next_move = board.find_next_move();
         println!("{}", next_move);
