@@ -43,7 +43,6 @@ async fn play_game(game_id: String) {
     let mut stream = BufStream::new(&mut stream);
     let mut buf = String::new();
     while stream.read_line(&mut buf).unwrap_or(0) > 0 {
-        // println!("{}", &buf);
         match try_parse_json(&buf) {
             Ok(v) => {
                 let msg_type = v["type"].to_string();
@@ -53,10 +52,10 @@ async fn play_game(game_id: String) {
                         let mut board = Board::new();
                         for next_move in v["moves"].as_str().unwrap().split_whitespace() {
                             println!("{}", next_move);
-                            board.move_piece(next_move.to_string());
+                            board = Board::move_piece(board, next_move.to_string());
                         }
                         println!("{}", board);
-                        let bot_move = board.find_next_move();
+                        let bot_move = Board::find_next_move(board);
                         let auth_header_value = format!("Bearer {}", lichess_api_token);
                         let client = reqwest::Client::builder().build().unwrap();
                         let endpoint = format!(
@@ -70,9 +69,7 @@ async fn play_game(game_id: String) {
                             .await
                             .unwrap();
                     }
-                    _ => {
-                        println!("Game Stream - Unknown Message Type: {}", msg_type);
-                    }
+                    _ => {}
                 }
             }
             Err(_) => (),
@@ -92,7 +89,6 @@ async fn subscribe() {
     let mut stream = BufStream::new(&mut stream);
     let mut buf = String::new();
     while stream.read_line(&mut buf).unwrap_or(0) > 0 {
-        // println!("{}", &buf);
         match try_parse_json(&buf) {
             Ok(v) => {
                 let msg_type = v["type"].to_string();

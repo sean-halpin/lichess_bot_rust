@@ -1,13 +1,13 @@
 use colored::*;
 use std::fmt;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Team {
     White,
     Black,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Rank {
     King,
     Queen,
@@ -17,7 +17,7 @@ pub enum Rank {
     Pawn,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct Piece {
     team: Team,
     rank: Rank,
@@ -140,18 +140,19 @@ impl Location {
 pub struct Move {
     pub from: Location,
     pub to: Location,
+    pub captured: Option<Rank>,
 }
 
 impl Move {
-    fn new(_board: &Board, from: Location, to: Location) -> Option<Self> {
+    fn new(_board: &Board, from: Location, to: Location, captured: Option<Rank>) -> Option<Self> {
         if from.valid_location && to.valid_location {
-            return Some(Move { from, to });
+            return Some(Move { from, to, captured });
         }
         return None;
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct Square {
     pub location: Location,
     pub piece: Option<Piece>,
@@ -253,19 +254,51 @@ impl Board {
         }
     }
 
-    pub fn move_piece(&mut self, next_move: String) {
+    pub fn move_piece(b: Board, next_move: String) -> Board {
+        let mut cloned_board = b.clone();
         let (from_col, from_row, to_col, to_row) = Location::str_to_coords(next_move);
-        match &self.squares[from_row][from_col].piece {
+        match &b.squares[from_row][from_col].piece {
             Some(p) => {
-                self.squares[to_row][to_col].piece = Some(p.clone());
-                self.squares[from_row][from_col].piece = None;
+                cloned_board.squares[to_row][to_col].piece = Some(p.clone());
+                cloned_board.squares[from_row][from_col].piece = None;
             }
             None => (),
         }
-        match &self.next_to_move {
-            Team::White => self.next_to_move = Team::Black,
-            Team::Black => self.next_to_move = Team::White,
+        match &b.next_to_move {
+            Team::White => cloned_board.next_to_move = Team::Black,
+            Team::Black => cloned_board.next_to_move = Team::White,
         }
+        return cloned_board;
+    }
+
+    fn is_king_checked(b: &Board, m: &Move) -> bool {
+        for r in 0..8 {
+            for c in 0..8 {
+                let sqr = &b.squares[r][c];
+                if sqr.piece.is_some() {
+                    let p = sqr.piece.as_ref().unwrap();
+                    if (p.rank == Rank::King) && (p.team == b.next_to_move) {
+                        let move_string = Location::coords_to_str(
+                            m.from.column as usize,
+                            m.from.row as usize,
+                            m.to.column as usize,
+                            m.to.row as usize,
+                        );
+                        let future_board = Board::move_piece(b.clone(), move_string);
+                        let next_moves = Board::find_next_moves(future_board);
+                        return next_moves
+                            .into_iter()
+                            .filter(|m| m.captured.is_some())
+                            .map(|m| m.captured.unwrap())
+                            .filter(|c| c == &Rank::King)
+                            .collect::<Vec<Rank>>()
+                            .len()
+                            > 0;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     pub fn navigate(&self, dir: Direction, from: Location) -> Vec<Option<Move>> {
@@ -318,8 +351,14 @@ impl Board {
                         if piece.team == self.next_to_move {
                             continue;
                         }
+                        // If we land on enemy piece
+                        if piece.team != self.next_to_move {
+                            let n = Move::new(self, from, to, Some(piece.rank.clone()));
+                            moves.push(n);
+                            continue;
+                        }
                     }
-                    let n = Move::new(self, from, to);
+                    let n = Move::new(self, from, to, None);
                     moves.push(n);
                 }
             }
@@ -356,12 +395,12 @@ impl Board {
                         }
                         // If we land on enemy piece
                         if piece.team != self.next_to_move {
-                            let n = Move::new(self, from, to);
+                            let n = Move::new(self, from, to, Some(piece.rank.clone()));
                             moves.push(n);
                             break 'outerWorld;
                         }
                     }
-                    let n = Move::new(self, from, to);
+                    let n = Move::new(self, from, to, None);
                     moves.push(n);
                 }
             }
@@ -369,51 +408,51 @@ impl Board {
         return moves;
     }
 
-    fn generate_all_possible_moves(&self, sqr: &Square) -> Vec<Move> {
+    fn generate_all_possible_moves(b: &Board, sqr: &Square) -> Vec<Move> {
         let from = sqr.location.clone();
         let mut moves: Vec<Option<Move>> = vec![];
         match &sqr.piece {
             Some(piece) => match piece.rank {
                 Rank::Pawn => match piece.team {
                     Team::White => {
-                        moves.append(&mut self.navigate(Direction::N, from));
+                        moves.append(&mut b.navigate(Direction::N, from));
                     }
                     Team::Black => {
-                        moves.append(&mut self.navigate(Direction::S, from));
+                        moves.append(&mut b.navigate(Direction::S, from));
                     }
                 },
-                Rank::Knight => moves.append(&mut self.navigate(Direction::KNIGHT, from)),
+                Rank::Knight => moves.append(&mut b.navigate(Direction::KNIGHT, from)),
                 Rank::King => {
-                    moves.append(&mut self.navigate(Direction::N, from));
-                    moves.append(&mut self.navigate(Direction::S, from));
-                    moves.append(&mut self.navigate(Direction::E, from));
-                    moves.append(&mut self.navigate(Direction::W, from));
-                    moves.append(&mut self.navigate(Direction::NW, from));
-                    moves.append(&mut self.navigate(Direction::NE, from));
-                    moves.append(&mut self.navigate(Direction::SW, from));
-                    moves.append(&mut self.navigate(Direction::SE, from));
+                    moves.append(&mut b.navigate(Direction::N, from));
+                    moves.append(&mut b.navigate(Direction::S, from));
+                    moves.append(&mut b.navigate(Direction::E, from));
+                    moves.append(&mut b.navigate(Direction::W, from));
+                    moves.append(&mut b.navigate(Direction::NW, from));
+                    moves.append(&mut b.navigate(Direction::NE, from));
+                    moves.append(&mut b.navigate(Direction::SW, from));
+                    moves.append(&mut b.navigate(Direction::SE, from));
                 }
                 Rank::Rook => {
-                    moves.append(&mut self.navigate(Direction::N, from));
-                    moves.append(&mut self.navigate(Direction::S, from));
-                    moves.append(&mut self.navigate(Direction::E, from));
-                    moves.append(&mut self.navigate(Direction::W, from));
+                    moves.append(&mut b.navigate(Direction::N, from));
+                    moves.append(&mut b.navigate(Direction::S, from));
+                    moves.append(&mut b.navigate(Direction::E, from));
+                    moves.append(&mut b.navigate(Direction::W, from));
                 }
                 Rank::Bishop => {
-                    moves.append(&mut self.navigate(Direction::NW, from));
-                    moves.append(&mut self.navigate(Direction::NE, from));
-                    moves.append(&mut self.navigate(Direction::SW, from));
-                    moves.append(&mut self.navigate(Direction::SE, from));
+                    moves.append(&mut b.navigate(Direction::NW, from));
+                    moves.append(&mut b.navigate(Direction::NE, from));
+                    moves.append(&mut b.navigate(Direction::SW, from));
+                    moves.append(&mut b.navigate(Direction::SE, from));
                 }
                 Rank::Queen => {
-                    moves.append(&mut self.navigate(Direction::N, from));
-                    moves.append(&mut self.navigate(Direction::S, from));
-                    moves.append(&mut self.navigate(Direction::E, from));
-                    moves.append(&mut self.navigate(Direction::W, from));
-                    moves.append(&mut self.navigate(Direction::NW, from));
-                    moves.append(&mut self.navigate(Direction::NE, from));
-                    moves.append(&mut self.navigate(Direction::SW, from));
-                    moves.append(&mut self.navigate(Direction::SE, from));
+                    moves.append(&mut b.navigate(Direction::N, from));
+                    moves.append(&mut b.navigate(Direction::S, from));
+                    moves.append(&mut b.navigate(Direction::E, from));
+                    moves.append(&mut b.navigate(Direction::W, from));
+                    moves.append(&mut b.navigate(Direction::NW, from));
+                    moves.append(&mut b.navigate(Direction::NE, from));
+                    moves.append(&mut b.navigate(Direction::SW, from));
+                    moves.append(&mut b.navigate(Direction::SE, from));
                 }
             },
             _ => {}
@@ -426,25 +465,9 @@ impl Board {
             .collect();
     }
 
-    pub fn find_next_move(&mut self) -> String {
-        let mut all_moves = vec![];
-        for row in (0..self.squares.len()).rev() {
-            for column in 0..self.squares[row].len() {
-                let curr_square = &self.squares[row][column];
-                match &curr_square.piece {
-                    Some(piece) => {
-                        if piece.team == self.next_to_move {
-                            let mut result: Vec<Move> =
-                                self.generate_all_possible_moves(&curr_square);
-                            all_moves.append(&mut result);
-                        }
-                    }
-                    None => (),
-                }
-            }
-        }
-        let index = (rand::random::<f32>() * all_moves.len() as f32).floor() as usize;
-        let item = &all_moves[index];
+    pub fn choose_next_move(moves: Vec<Move>) -> String {
+        let index = (rand::random::<f32>() * moves.len() as f32).floor() as usize;
+        let item = &moves[index];
         let next = Location::coords_to_str(
             item.from.column as usize,
             item.from.row as usize,
@@ -453,6 +476,35 @@ impl Board {
         );
         println!("next_move {:?}", next);
         return next;
+    }
+
+    pub fn find_next_move(b: Board) -> String {
+        return Board::choose_next_move(
+            Board::find_next_moves(b.clone())
+                .into_iter()
+                .filter(|m| !Board::is_king_checked(&b, m))
+                .collect(),
+        );
+    }
+
+    pub fn find_next_moves(b: Board) -> Vec<Move> {
+        let mut all_moves = vec![];
+        for row in (0..b.squares.len()).rev() {
+            for column in 0..b.squares[row].len() {
+                let curr_square = &b.squares[row][column];
+                match &curr_square.piece {
+                    Some(piece) => {
+                        if piece.team == b.next_to_move {
+                            let mut result: Vec<Move> =
+                                Board::generate_all_possible_moves(&b, &curr_square);
+                            all_moves.append(&mut result);
+                        }
+                    }
+                    None => (),
+                }
+            }
+        }
+        return all_moves;
     }
 }
 
@@ -477,15 +529,23 @@ impl std::fmt::Display for Board {
 
 #[cfg(test)]
 mod tests {
-    use crate::chess::Board;
+    use super::*;
+
+    #[test]
+    fn create_chess_move() {
+        let board = Board::new();
+        let mv = Move::new(&board, Location::new(1, 5), Location::new(3, 5), None).unwrap();
+        println!("{}", board);
+        println!("Is King Checked {}", Board::is_king_checked(&board, &mv));
+    }
 
     #[test]
     fn create_chess_board() {
         let mut board = Board::new();
         println!("{}", board);
-        for _n in 0..55 {
-            let next_move = board.find_next_move();
-            board.move_piece(next_move);
+        for _n in 0..5 {
+            let next_move = Board::find_next_move(board.clone());
+            board = Board::move_piece(board, next_move);
             println!("{}", board);
         }
     }
