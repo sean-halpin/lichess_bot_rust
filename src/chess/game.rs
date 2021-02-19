@@ -363,7 +363,7 @@ impl Board {
                 }
             }
             _ => {
-                'outerWorld: for delta in 1..(max_distance + 1) {
+                for delta in 1..(max_distance + 1) {
                     let to: Location;
                     match &dir {
                         Direction::N => to = Location::new(row + delta, column),
@@ -378,7 +378,7 @@ impl Board {
                     }
                     // If we land out of bounds
                     if !to.valid_location {
-                        break 'outerWorld;
+                        break;
                     }
                     // If we land on a piece
                     let land_on_piece = &self.squares[to.row as usize][to.column as usize]
@@ -391,13 +391,13 @@ impl Board {
                             .unwrap();
                         // If we land on our own piece
                         if piece.team == self.next_to_move {
-                            break 'outerWorld;
+                            break;
                         }
                         // If we land on enemy piece
                         if piece.team != self.next_to_move {
                             let n = Move::new(self, from, to, Some(piece.rank.clone()));
                             moves.push(n);
-                            break 'outerWorld;
+                            break;
                         }
                     }
                     let n = Move::new(self, from, to, None);
