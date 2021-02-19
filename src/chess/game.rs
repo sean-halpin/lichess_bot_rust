@@ -61,7 +61,6 @@ pub struct Location {
 
 impl Location {
     fn new(row: isize, column: isize) -> Self {
-        // println!("{}:{}", row, column);
         if (row >= 0) && (row <= 7) && (column >= 0) && (column <= 7) {
             return Location {
                 row,
@@ -349,7 +348,7 @@ impl Board {
                         }
                         // If we land out of bounds
                         if !to.valid_location {
-                            continue 'outerWorld;
+                            break 'outerWorld;
                         }
                         // If we land on a piece
                         let land_on_piece = &self.squares[to.row as usize][to.column as usize]
@@ -362,7 +361,13 @@ impl Board {
                                 .unwrap();
                             // If we land on our own piece
                             if piece.team == self.next_to_move {
-                                continue;
+                                break 'outerWorld;
+                            }
+                            // If we land on enemy piece
+                            if piece.team != self.next_to_move {
+                                let n = Move::new(self, from, to);
+                                moves.push(n);
+                                break 'outerWorld;
                             }
                         }
                         let n = Move::new(self, from, to);
@@ -371,14 +376,12 @@ impl Board {
                 }
             }
         }
-        println!("{:?}", moves);
         return moves;
     }
 
     fn generate_all_possible_moves(&self, sqr: &Square) -> Vec<Move> {
         let from = sqr.location.clone();
         let mut moves: Vec<Option<Move>> = vec![];
-        println!("{:?}", sqr);
         match &sqr.piece {
             Some(piece) => match piece.rank {
                 Rank::Pawn => match piece.team {
@@ -425,7 +428,6 @@ impl Board {
             },
             _ => {}
         }
-        println!("{:?}", moves);
         return moves
             .into_iter()
             .filter(|m| m.is_some())
@@ -439,13 +441,11 @@ impl Board {
         for row in (0..self.squares.len()).rev() {
             for column in 0..self.squares[row].len() {
                 let curr_square = &self.squares[row][column];
-                // println!("sqr: {:?}", curr_square);
                 match &curr_square.piece {
                     Some(piece) => {
                         if piece.team == self.next_to_move {
                             let mut result: Vec<Move> =
                                 self.generate_all_possible_moves(&curr_square);
-                            println!("{:?}", result);
                             all_moves.append(&mut result);
                         }
                     }
@@ -455,29 +455,32 @@ impl Board {
         }
         let index = (rand::random::<f32>() * all_moves.len() as f32).floor() as usize;
         let item = &all_moves[index];
-        println!("all_moves {:?}", all_moves);
-        return Location::coords_to_str(
+        let next = Location::coords_to_str(
             item.from.column as usize,
             item.from.row as usize,
             item.to.column as usize,
             item.to.row as usize,
         );
+        println!("next_move {:?}", next);
+        return next;
     }
 }
 
 impl std::fmt::Display for Board {
     fn fmt(&self, _f: &mut fmt::Formatter) -> fmt::Result {
-        println!("###############");
+        println!("##a#b#c#d#e#f#g#h###");
         for x in (0..self.squares.len()).rev() {
+            print!("{}#", x + 1);
             for y in 0..self.squares[x].len() {
                 match &self.squares[x][y].piece {
                     Some(piece) => print!("{} ", piece),
                     None => print!(". "),
                 }
             }
+            print!("#{}", x + 1);
             println!();
         }
-        println!("###############");
+        println!("##a#b#c#d#e#f#g#h###");
         Ok(())
     }
 }
@@ -490,15 +493,10 @@ mod tests {
     fn create_chess_board() {
         let mut board = Board::new();
         println!("{}", board);
-        board.move_piece("e2e4".to_string());
-        println!("{}", board);
-        let next_move = board.find_next_move();
-        println!("NEXT {}", next_move);
-        // board.move_piece(next_move);
-        // println!("{}", board);
-        // let next_move = board.find_next_move();
-        // println!("{}", next_move);
-        // board.move_piece(next_move);
-        // println!("{}", board);
+        for _n in 0..5 {
+            let next_move = board.find_next_move();
+            board.move_piece(next_move);
+            println!("{}", board);
+        }
     }
 }
