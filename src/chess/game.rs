@@ -324,55 +324,45 @@ impl Board {
                 }
             }
             _ => {
-                'outerWorld: for row_delta in 1..(max_distance + 1) {
-                    for column_delta in 1..(max_distance + 1) {
-                        let to: Location;
-                        match &dir {
-                            Direction::N => to = Location::new(row + row_delta, column),
-                            Direction::S => to = Location::new(row - row_delta, column),
-                            Direction::E => to = Location::new(row, column + column_delta),
-                            Direction::W => to = Location::new(row, column - column_delta),
-                            Direction::NE => {
-                                to = Location::new(row + row_delta, column + column_delta)
-                            }
-                            Direction::NW => {
-                                to = Location::new(row + row_delta, column - column_delta)
-                            }
-                            Direction::SW => {
-                                to = Location::new(row - row_delta, column + column_delta)
-                            }
-                            Direction::SE => {
-                                to = Location::new(row - row_delta, column - column_delta)
-                            }
-                            _ => to = Location::new(-1, -1),
-                        }
-                        // If we land out of bounds
-                        if !to.valid_location {
+                'outerWorld: for delta in 1..(max_distance + 1) {
+                    let to: Location;
+                    match &dir {
+                        Direction::N => to = Location::new(row + delta, column),
+                        Direction::S => to = Location::new(row - delta, column),
+                        Direction::E => to = Location::new(row, column + delta),
+                        Direction::W => to = Location::new(row, column - delta),
+                        Direction::NE => to = Location::new(row + delta, column + delta),
+                        Direction::NW => to = Location::new(row + delta, column - delta),
+                        Direction::SW => to = Location::new(row - delta, column + delta),
+                        Direction::SE => to = Location::new(row - delta, column - delta),
+                        _ => to = Location::new(-1, -1),
+                    }
+                    // If we land out of bounds
+                    if !to.valid_location {
+                        break 'outerWorld;
+                    }
+                    // If we land on a piece
+                    let land_on_piece = &self.squares[to.row as usize][to.column as usize]
+                        .piece
+                        .is_some();
+                    if *land_on_piece == true {
+                        let piece = &self.squares[to.row as usize][to.column as usize]
+                            .piece
+                            .as_ref()
+                            .unwrap();
+                        // If we land on our own piece
+                        if piece.team == self.next_to_move {
                             break 'outerWorld;
                         }
-                        // If we land on a piece
-                        let land_on_piece = &self.squares[to.row as usize][to.column as usize]
-                            .piece
-                            .is_some();
-                        if *land_on_piece == true {
-                            let piece = &self.squares[to.row as usize][to.column as usize]
-                                .piece
-                                .as_ref()
-                                .unwrap();
-                            // If we land on our own piece
-                            if piece.team == self.next_to_move {
-                                break 'outerWorld;
-                            }
-                            // If we land on enemy piece
-                            if piece.team != self.next_to_move {
-                                let n = Move::new(self, from, to);
-                                moves.push(n);
-                                break 'outerWorld;
-                            }
+                        // If we land on enemy piece
+                        if piece.team != self.next_to_move {
+                            let n = Move::new(self, from, to);
+                            moves.push(n);
+                            break 'outerWorld;
                         }
-                        let n = Move::new(self, from, to);
-                        moves.push(n);
                     }
+                    let n = Move::new(self, from, to);
+                    moves.push(n);
                 }
             }
         }
@@ -493,7 +483,7 @@ mod tests {
     fn create_chess_board() {
         let mut board = Board::new();
         println!("{}", board);
-        for _n in 0..5 {
+        for _n in 0..55 {
             let next_move = board.find_next_move();
             board.move_piece(next_move);
             println!("{}", board);

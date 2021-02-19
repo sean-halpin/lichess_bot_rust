@@ -14,8 +14,6 @@ fn try_parse_json(json_string: &str) -> serde_json::Result<Value> {
     return Ok(v);
 }
 
-// Accept Challenge
-
 fn connect_tls_stream() -> Result<TlsStream<TcpStream>, String> {
     println!("TLS connect starting");
     let connector = TlsConnector::new().unwrap();
@@ -45,7 +43,7 @@ async fn play_game(game_id: String) {
     let mut stream = BufStream::new(&mut stream);
     let mut buf = String::new();
     while stream.read_line(&mut buf).unwrap_or(0) > 0 {
-        println!("{}", &buf);
+        // println!("{}", &buf);
         match try_parse_json(&buf) {
             Ok(v) => {
                 let msg_type = v["type"].to_string();
@@ -94,7 +92,7 @@ async fn subscribe() {
     let mut stream = BufStream::new(&mut stream);
     let mut buf = String::new();
     while stream.read_line(&mut buf).unwrap_or(0) > 0 {
-        println!("{}", &buf);
+        // println!("{}", &buf);
         match try_parse_json(&buf) {
             Ok(v) => {
                 let msg_type = v["type"].to_string();
