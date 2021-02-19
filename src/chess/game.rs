@@ -61,8 +61,8 @@ pub struct Location {
 
 impl Location {
     fn new(row: isize, column: isize) -> Self {
-        println!("{}:{}", row, column);
-        if (row >= 0) || (row <= 7) || (column >= 0) || (column <= 7) {
+        // println!("{}:{}", row, column);
+        if (row >= 0) && (row <= 7) && (column >= 0) && (column <= 7) {
             return Location {
                 row,
                 column,
@@ -297,40 +297,36 @@ impl Board {
                     vec![-2, 1],
                     vec![-2, -1],
                 ];
-                'outer: for row in 0..knight_moves.len() {
-                    for column in 0..knight_moves[row].len() {
-                        let to = Location::new(
-                            (row as isize) + knight_moves[row][column],
-                            (column as isize) + knight_moves[row][column],
-                        );
-                        // If we land out of bounds
-                        if !to.valid_location {
-                            break 'outer;
-                        }
-                        // If we land on a piece
-                        let land_on_piece =
-                            &self.squares[row as usize][column as usize].piece.is_some();
-                        if *land_on_piece {
-                            let piece = &self.squares[row as usize][column as usize]
-                                .piece
-                                .as_ref()
-                                .unwrap();
-                            // If we land on our own piece
-                            if piece.team == self.next_to_move {
-                                break 'outer;
-                            }
-                            let n = Move::new(self, from, to);
-                            moves.push(n);
-                            break 'outer;
-                        }
-                        let n = Move::new(self, from, to);
-                        moves.push(n);
+                for r in 0..knight_moves.len() {
+                    let to = Location::new(
+                        (row as isize) + knight_moves[r][0],
+                        (column as isize) + knight_moves[r][1],
+                    );
+                    // If we land out of bounds
+                    if !to.valid_location {
+                        continue;
                     }
+                    // If we land on a piece
+                    let land_on_piece = &self.squares[to.row as usize][to.column as usize]
+                        .piece
+                        .is_some();
+                    if *land_on_piece == true {
+                        let piece = &self.squares[to.row as usize][to.column as usize]
+                            .piece
+                            .as_ref()
+                            .unwrap();
+                        // If we land on our own piece
+                        if piece.team == self.next_to_move {
+                            continue;
+                        }
+                    }
+                    let n = Move::new(self, from, to);
+                    moves.push(n);
                 }
             }
             _ => {
-                'outerWorld: for row_delta in 1..max_distance {
-                    for column_delta in 1..max_distance {
+                'outerWorld: for row_delta in 1..(max_distance + 1) {
+                    for column_delta in 1..(max_distance + 1) {
                         let to: Location;
                         match &dir {
                             Direction::N => to = Location::new(row + row_delta, column),
@@ -353,23 +349,21 @@ impl Board {
                         }
                         // If we land out of bounds
                         if !to.valid_location {
-                            break 'outerWorld;
+                            continue 'outerWorld;
                         }
                         // If we land on a piece
-                        let land_on_piece =
-                            &self.squares[row as usize][column as usize].piece.is_some();
-                        if *land_on_piece {
-                            let piece = &self.squares[row as usize][column as usize]
+                        let land_on_piece = &self.squares[to.row as usize][to.column as usize]
+                            .piece
+                            .is_some();
+                        if *land_on_piece == true {
+                            let piece = &self.squares[to.row as usize][to.column as usize]
                                 .piece
                                 .as_ref()
                                 .unwrap();
                             // If we land on our own piece
                             if piece.team == self.next_to_move {
-                                break 'outerWorld;
+                                continue;
                             }
-                            let n = Move::new(self, from, to);
-                            moves.push(n);
-                            break 'outerWorld;
                         }
                         let n = Move::new(self, from, to);
                         moves.push(n);
@@ -377,14 +371,14 @@ impl Board {
                 }
             }
         }
-        // println!("{:?}", moves);
+        println!("{:?}", moves);
         return moves;
     }
 
     fn generate_all_possible_moves(&self, sqr: &Square) -> Vec<Move> {
         let from = sqr.location.clone();
         let mut moves: Vec<Option<Move>> = vec![];
-        // println!("{:?}", sqr);
+        println!("{:?}", sqr);
         match &sqr.piece {
             Some(piece) => match piece.rank {
                 Rank::Pawn => match piece.team {
@@ -431,6 +425,7 @@ impl Board {
             },
             _ => {}
         }
+        println!("{:?}", moves);
         return moves
             .into_iter()
             .filter(|m| m.is_some())
@@ -444,12 +439,13 @@ impl Board {
         for row in (0..self.squares.len()).rev() {
             for column in 0..self.squares[row].len() {
                 let curr_square = &self.squares[row][column];
-                println!("sqr: {:?}", curr_square);
+                // println!("sqr: {:?}", curr_square);
                 match &curr_square.piece {
                     Some(piece) => {
                         if piece.team == self.next_to_move {
                             let mut result: Vec<Move> =
                                 self.generate_all_possible_moves(&curr_square);
+                            println!("{:?}", result);
                             all_moves.append(&mut result);
                         }
                     }
@@ -457,7 +453,6 @@ impl Board {
                 }
             }
         }
-        // println!("{:?}", all_moves);
         let index = (rand::random::<f32>() * all_moves.len() as f32).floor() as usize;
         let item = &all_moves[index];
         println!("all_moves {:?}", all_moves);
@@ -498,12 +493,12 @@ mod tests {
         board.move_piece("e2e4".to_string());
         println!("{}", board);
         let next_move = board.find_next_move();
-        println!("{}", next_move);
-        board.move_piece(next_move);
-        println!("{}", board);
-        let next_move = board.find_next_move();
-        println!("{}", next_move);
-        board.move_piece(next_move);
-        println!("{}", board);
+        println!("NEXT {}", next_move);
+        // board.move_piece(next_move);
+        // println!("{}", board);
+        // let next_move = board.find_next_move();
+        // println!("{}", next_move);
+        // board.move_piece(next_move);
+        // println!("{}", board);
     }
 }
