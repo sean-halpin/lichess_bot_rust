@@ -173,7 +173,7 @@ pub struct Board {
     pub squares: Vec<Vec<Square>>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Direction {
     N,
     S,
@@ -362,6 +362,59 @@ impl Board {
                     moves.push(n);
                 }
             }
+            Rank::Pawn => {
+                for delta in 1..(max_distance + 1) {
+                    let to: Location;
+                    match &dir {
+                        Direction::N => to = Location::new(row + delta, column),
+                        Direction::S => to = Location::new(row - delta, column),
+                        Direction::E => to = Location::new(row, column + delta),
+                        Direction::W => to = Location::new(row, column - delta),
+                        Direction::NE => to = Location::new(row + delta, column + delta),
+                        Direction::NW => to = Location::new(row + delta, column - delta),
+                        Direction::SW => to = Location::new(row - delta, column + delta),
+                        Direction::SE => to = Location::new(row - delta, column - delta),
+                        _ => to = Location::new(-1, -1),
+                    }
+                    // If we land out of bounds
+                    if !to.valid_location {
+                        break;
+                    }
+                    // If we land on a piece
+                    let land_on_piece = &self.squares[to.row as usize][to.column as usize]
+                        .piece
+                        .is_some();
+                    if *land_on_piece == true {
+                        let piece = &self.squares[to.row as usize][to.column as usize]
+                            .piece
+                            .as_ref()
+                            .unwrap();
+                        // If we land on our own piece
+                        if piece.team == self.next_to_move {
+                            break;
+                        }
+                        // If we land on enemy piece
+                        if piece.team != self.next_to_move {
+                            if dir == Direction::SE
+                                || dir == Direction::SW
+                                || dir == Direction::NE
+                                || dir == Direction::NW
+                            {
+                                let n = Move::new(self, from, to, Some(piece.rank.clone()));
+                                moves.push(n);
+                                break;
+                            }
+                            if dir == Direction::N || dir == Direction::S {
+                                break;
+                            }
+                        }
+                    }
+                    if dir == Direction::N || dir == Direction::S {
+                        let n = Move::new(self, from, to, None);
+                        moves.push(n);
+                    }
+                }
+            }
             _ => {
                 for delta in 1..(max_distance + 1) {
                     let to: Location;
@@ -416,9 +469,13 @@ impl Board {
                 Rank::Pawn => match piece.team {
                     Team::White => {
                         moves.append(&mut b.navigate(Direction::N, from));
+                        moves.append(&mut b.navigate(Direction::NW, from));
+                        moves.append(&mut b.navigate(Direction::NE, from));
                     }
                     Team::Black => {
                         moves.append(&mut b.navigate(Direction::S, from));
+                        moves.append(&mut b.navigate(Direction::SW, from));
+                        moves.append(&mut b.navigate(Direction::SE, from));
                     }
                 },
                 Rank::Knight => moves.append(&mut b.navigate(Direction::KNIGHT, from)),
