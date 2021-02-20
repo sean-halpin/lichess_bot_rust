@@ -258,10 +258,35 @@ impl Board {
         let mut cloned_board = b.clone();
         let (from_col, from_row, to_col, to_row) = Location::str_to_coords(next_move);
         match &b.squares[from_row][from_col].piece {
-            Some(p) => {
-                cloned_board.squares[to_row][to_col].piece = Some(p.clone());
-                cloned_board.squares[from_row][from_col].piece = None;
-            }
+            Some(p) => match p.rank {
+                // Handle Pawn Promotion - Presume Always Queen
+                Rank::Pawn => match p.team {
+                    Team::White => {
+                        if to_row == 7 {
+                            cloned_board.squares[to_row][to_col].piece =
+                                Some(Piece::new(p.team, Rank::Queen));
+                            cloned_board.squares[from_row][from_col].piece = None;
+                        } else {
+                            cloned_board.squares[to_row][to_col].piece = Some(*p);
+                            cloned_board.squares[from_row][from_col].piece = None;
+                        }
+                    }
+                    Team::Black => {
+                        if to_row == 0 {
+                            cloned_board.squares[to_row][to_col].piece =
+                                Some(Piece::new(p.team, Rank::Queen));
+                            cloned_board.squares[from_row][from_col].piece = None;
+                        } else {
+                            cloned_board.squares[to_row][to_col].piece = Some(*p);
+                            cloned_board.squares[from_row][from_col].piece = None;
+                        }
+                    }
+                },
+                _ => {
+                    cloned_board.squares[to_row][to_col].piece = Some(*p);
+                    cloned_board.squares[from_row][from_col].piece = None;
+                }
+            },
             None => (),
         }
         match &b.next_to_move {
