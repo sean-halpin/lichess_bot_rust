@@ -52,10 +52,10 @@ async fn play_game(game_id: String) {
                         let mut board = Board::new();
                         for next_move in v["moves"].as_str().unwrap().split_whitespace() {
                             println!("{}", next_move);
-                            board = Board::move_piece(board, next_move.to_string());
+                            board = Board::move_piece(&board, next_move.to_string());
                         }
                         println!("{}", board);
-                        let bot_move = Board::find_next_move(board);
+                        let bot_move = Board::find_next_move(&board, 1);
                         let auth_header_value = format!("Bearer {}", lichess_api_token);
                         let client = reqwest::Client::builder().build().unwrap();
                         let endpoint = format!(
