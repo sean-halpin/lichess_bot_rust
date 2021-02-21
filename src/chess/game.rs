@@ -1,7 +1,7 @@
 use colored::*;
 use std::fmt;
 
-static mut move_counter: usize = 0;
+static mut MOVE_COUNTER: usize = 0;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Team {
@@ -22,7 +22,7 @@ pub enum Rank {
 impl Rank {
     fn valuation(&self) -> isize {
         return match self {
-            Rank::King => 999,
+            Rank::King => 99,
             Rank::Queen => 9,
             Rank::Rook => 5,
             Rank::Knight => 3,
@@ -77,7 +77,7 @@ pub struct Location {
 impl Location {
     fn new(row: isize, column: isize) -> Self {
         unsafe {
-            move_counter = move_counter + 1;
+            MOVE_COUNTER = MOVE_COUNTER + 1;
         }
         if (row >= 0) && (row <= 7) && (column >= 0) && (column <= 7) {
             return Location {
@@ -360,7 +360,16 @@ impl Board {
             .unwrap();
         let max_distance = match p.rank {
             Rank::Knight => 0,
-            Rank::Pawn => 1,
+            Rank::Pawn => match p.team {
+                Team::White => match from.row {
+                    1 => 2,
+                    _ => 1,
+                },
+                Team::Black => match from.row {
+                    6 => 2,
+                    _ => 1,
+                },
+            },
             Rank::King => 1,
             Rank::Rook => 8,
             Rank::Bishop => 8,
@@ -592,13 +601,17 @@ impl Board {
                 .filter(|m| m.captured.is_some())
                 .map(|m| m.captured.unwrap().valuation())
                 .collect();
-            let sum: isize = capture_values
+            let min: isize = capture_values
                 .clone()
                 .into_iter()
                 .clone()
-                .max()
+                .min()
                 .unwrap_or(0);
-            return sum;
+            let t = board.next_to_move;
+            match t {
+                Team::White => return -min + m.value,
+                Team::Black => return min + m.value,
+            }
         } else {
             let board = Board::move_piece(
                 &b,
@@ -631,16 +644,16 @@ impl Board {
                         .unwrap_or(0),
                 );
             }
-            return metrics.into_iter().max().unwrap_or(0);
+            let t = board.next_to_move;
+            match t {
+                Team::White => return -metrics.into_iter().min().unwrap_or(0) + m.value,
+                Team::Black => return metrics.into_iter().min().unwrap_or(0) + m.value,
+            }
         }
     }
 
     pub fn get_move_value(b: &Board, m: &Move, depth: usize) -> isize {
-        let t = b.next_to_move;
-        match t {
-            Team::White => return Board::get_capture_metric(b, m, depth),
-            Team::Black => return Board::get_capture_metric(b, m, depth) * -1,
-        }
+        return Board::get_capture_metric(b, m, depth);
     }
 
     pub fn choose_next_move(b: &Board, moves: Vec<Move>, depth: usize) -> String {
@@ -659,10 +672,26 @@ impl Board {
             .collect();
         // println!("analyzed_moves {:?}", analyzed_moves);
 
-        let item = match b.next_to_move {
-            Team::White => analyzed_moves.into_iter().min_by_key(|m| m.value).unwrap(),
-            Team::Black => analyzed_moves.into_iter().max_by_key(|m| m.value).unwrap(),
+        let val = match b.next_to_move {
+            Team::White => analyzed_moves
+                .clone()
+                .into_iter()
+                .map(|m| m.value)
+                .min()
+                .unwrap(),
+            Team::Black => analyzed_moves
+                .clone()
+                .into_iter()
+                .map(|m| m.value)
+                .max()
+                .unwrap(),
         };
+        let items: Vec<Move> = analyzed_moves
+            .into_iter()
+            .filter(|m| m.value == val.to_owned())
+            .collect();
+        let index = (rand::random::<f32>() * items.len() as f32).floor() as usize;
+        let item = &items[index];
         let next = Location::coords_to_str(
             item.from.column as usize,
             item.from.row as usize,
@@ -672,7 +701,7 @@ impl Board {
         println!("next_move {:?}", next);
         println!("next_move {:?}", item);
         unsafe {
-            println!("{}", move_counter);
+            println!("{}", MOVE_COUNTER);
         }
         return next;
     }
@@ -746,7 +775,7 @@ mod tests {
         let mut board = Board::new();
         println!("{}", board);
         for _n in 0..80 {
-            let next_move = Board::find_next_move(&board, 3);
+            let next_move = Board::find_next_move(&board, 2);
             board = Board::move_piece(&board, next_move);
             println!("{}", board);
         }
