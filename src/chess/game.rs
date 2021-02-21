@@ -22,7 +22,7 @@ pub enum Rank {
 impl Rank {
     fn valuation(&self) -> isize {
         return match self {
-            Rank::King => 1000,
+            Rank::King => 999,
             Rank::Queen => 9,
             Rank::Rook => 5,
             Rank::Knight => 3,
