@@ -634,7 +634,7 @@ impl Board {
                 .into_iter()
                 .map(|m| m.value)
                 .max()
-                .unwrap();
+                .unwrap_or(0);
             let best_value_moves_d2: Vec<Move> = valid_moves_d1
                 .into_iter()
                 .filter(|m| m.value == best_next_move_value_d1.to_owned())
@@ -651,7 +651,7 @@ impl Board {
                     .into_iter()
                     .map(|m| m.value)
                     .max()
-                    .unwrap();
+                    .unwrap_or(0);
                 let move_value =
                     best_next_move_value - best_next_move_value_d1 + best_next_move_value_d2;
                 if move_value >= best_move_so_far_d1.unwrap().value {
