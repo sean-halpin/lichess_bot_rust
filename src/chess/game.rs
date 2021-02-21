@@ -592,7 +592,12 @@ impl Board {
                 .filter(|m| m.captured.is_some())
                 .map(|m| m.captured.unwrap().valuation())
                 .collect();
-            let sum: isize = capture_values.clone().into_iter().clone().max().unwrap_or(0);
+            let sum: isize = capture_values
+                .clone()
+                .into_iter()
+                .clone()
+                .max()
+                .unwrap_or(0);
             return sum;
         } else {
             let board = Board::move_piece(
@@ -608,8 +613,7 @@ impl Board {
                 .into_iter()
                 .filter(|m| !Board::is_own_king_checked(&board, m))
                 .collect();
-            let mut counter = 0;
-            let mut running_count = 0;
+            let mut metrics = vec![];
             for m in &all_possible_next_moves {
                 Board::get_capture_metric(b, &m, depth - 1);
                 let capture_values: Vec<isize> = all_possible_next_moves
@@ -618,11 +622,16 @@ impl Board {
                     .filter(|m| m.captured.is_some())
                     .map(|m| m.captured.unwrap().valuation())
                     .collect();
-                let sum: isize = capture_values.clone().into_iter().clone().max().unwrap_or(0);
-                counter = counter + 1;
-                running_count = counter + sum;
+                metrics.push(
+                    capture_values
+                        .clone()
+                        .into_iter()
+                        .clone()
+                        .max()
+                        .unwrap_or(0),
+                );
             }
-            return running_count;
+            return metrics.into_iter().max().unwrap_or(0);
         }
     }
 
