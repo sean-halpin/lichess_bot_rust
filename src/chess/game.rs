@@ -154,7 +154,7 @@ impl Location {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct Move {
     pub from: Location,
     pub to: Location,
@@ -173,6 +173,14 @@ impl Move {
             });
         }
         return None;
+    }
+    fn to_algebraic(&self) -> String {
+        let mut result = String::new();
+        result.push(Location::index_to_column(self.from.column as usize));
+        result.push(Location::index_to_row(self.from.row as usize));
+        result.push(Location::index_to_column(self.to.column as usize));
+        result.push(Location::index_to_row(self.to.row as usize));
+        return result;
     }
 }
 
@@ -411,7 +419,12 @@ impl Board {
                         }
                         // If we land on enemy piece
                         if piece.team != self.next_to_move {
-                            let n = Move::new(from, to, Some(piece.rank.clone()), 0);
+                            let n = Move::new(
+                                from,
+                                to,
+                                Some(piece.rank.clone()),
+                                piece.rank.valuation(),
+                            );
                             moves.push(n);
                             continue;
                         }
@@ -423,17 +436,23 @@ impl Board {
             Rank::Pawn => {
                 for delta in 1..(max_distance + 1) {
                     let to: Location;
-                    match &dir {
-                        Direction::N => to = Location::new(row + delta, column),
-                        Direction::S => to = Location::new(row - delta, column),
-                        Direction::E => to = Location::new(row, column + delta),
-                        Direction::W => to = Location::new(row, column - delta),
-                        Direction::NE => to = Location::new(row + delta, column + delta),
-                        Direction::NW => to = Location::new(row + delta, column - delta),
-                        Direction::SW => to = Location::new(row - delta, column + delta),
-                        Direction::SE => to = Location::new(row - delta, column - delta),
-                        _ => to = Location::new(-1, -1),
+                    match delta {
+                        1 => match &dir {
+                            Direction::N => to = Location::new(row + delta, column),
+                            Direction::S => to = Location::new(row - delta, column),
+                            Direction::NE => to = Location::new(row + delta, column + delta),
+                            Direction::NW => to = Location::new(row + delta, column - delta),
+                            Direction::SW => to = Location::new(row - delta, column + delta),
+                            Direction::SE => to = Location::new(row - delta, column - delta),
+                            _ => to = Location::new(-1, -1),
+                        },
+                        _ => match &dir {
+                            Direction::N => to = Location::new(row + delta, column),
+                            Direction::S => to = Location::new(row - delta, column),
+                            _ => to = Location::new(-1, -1),
+                        },
                     }
+
                     // If we land out of bounds
                     if !to.valid_location {
                         break;
@@ -458,7 +477,12 @@ impl Board {
                                 || dir == Direction::NE
                                 || dir == Direction::NW
                             {
-                                let n = Move::new(from, to, Some(piece.rank.clone()), 0);
+                                let n = Move::new(
+                                    from,
+                                    to,
+                                    Some(piece.rank.clone()),
+                                    piece.rank.valuation(),
+                                );
                                 moves.push(n);
                                 break;
                             }
@@ -506,7 +530,12 @@ impl Board {
                         }
                         // If we land on enemy piece
                         if piece.team != self.next_to_move {
-                            let n = Move::new(from, to, Some(piece.rank.clone()), 0);
+                            let n = Move::new(
+                                from,
+                                to,
+                                Some(piece.rank.clone()),
+                                piece.rank.valuation(),
+                            );
                             moves.push(n);
                             break;
                         }
@@ -581,138 +610,79 @@ impl Board {
             .collect();
     }
 
-    pub fn get_capture_metric(b: &Board, m: &Move, depth: usize) -> isize {
-        if depth == 1 {
-            let board = Board::move_piece(
-                &b,
-                Location::coords_to_str(
-                    m.from.column as usize,
-                    m.from.row as usize,
-                    m.to.column as usize,
-                    m.to.row as usize,
-                ),
-            );
-            let all_possible_next_moves: Vec<Move> = Board::find_valid_moves(&board)
-                .into_iter()
-                .filter(|m| !Board::is_own_king_checked(&board, m))
-                .collect();
-            let capture_values: Vec<isize> = all_possible_next_moves
-                .into_iter()
-                .filter(|m| m.captured.is_some())
-                .map(|m| m.captured.unwrap().valuation())
-                .collect();
-            let min: isize = capture_values
-                .clone()
-                .into_iter()
-                .clone()
-                .min()
-                .unwrap_or(0);
-            let t = board.next_to_move;
-            match t {
-                Team::White => return -min + m.value,
-                Team::Black => return min + m.value,
-            }
-        } else {
-            let board = Board::move_piece(
-                &b,
-                Location::coords_to_str(
-                    m.from.column as usize,
-                    m.from.row as usize,
-                    m.to.column as usize,
-                    m.to.row as usize,
-                ),
-            );
-            let all_possible_next_moves: Vec<Move> = Board::find_valid_moves(&board)
-                .into_iter()
-                .filter(|m| !Board::is_own_king_checked(&board, m))
-                .collect();
-            let mut metrics = vec![];
-            for m in &all_possible_next_moves {
-                Board::get_capture_metric(b, &m, depth - 1);
-                let capture_values: Vec<isize> = all_possible_next_moves
-                    .clone()
-                    .into_iter()
-                    .filter(|m| m.captured.is_some())
-                    .map(|m| m.captured.unwrap().valuation())
-                    .collect();
-                metrics.push(
-                    capture_values
-                        .clone()
-                        .into_iter()
-                        .clone()
-                        .max()
-                        .unwrap_or(0),
-                );
-            }
-            let t = board.next_to_move;
-            match t {
-                Team::White => return -metrics.into_iter().min().unwrap_or(0) + m.value,
-                Team::Black => return metrics.into_iter().min().unwrap_or(0) + m.value,
-            }
-        }
-    }
-
-    pub fn get_move_value(b: &Board, m: &Move, depth: usize) -> isize {
-        return Board::get_capture_metric(b, m, depth);
-    }
-
-    pub fn choose_next_move(b: &Board, moves: Vec<Move>, depth: usize) -> String {
-        let analyzed_moves: Vec<Move> = moves
-            .clone()
+    pub fn choose_next_move(b: &Board, moves: Vec<Move>) -> String {
+        let best_next_move_value = moves.clone().into_iter().map(|m| m.value).max().unwrap();
+        let best_value_moves_d1: Vec<Move> = moves
             .into_iter()
-            .map(|m| {
-                Move::new(
-                    m.from,
-                    m.to,
-                    m.captured,
-                    Board::get_move_value(b, &m, depth),
-                )
-                .unwrap()
-            })
+            .filter(|m| m.value == best_next_move_value.to_owned())
             .collect();
-        // println!("analyzed_moves {:?}", analyzed_moves);
 
-        let val = match b.next_to_move {
-            Team::White => analyzed_moves
-                .clone()
+        let mut best_move_so_far_d1: Option<Move> = None;
+        // d1
+        for mv in best_value_moves_d1 {
+            match best_move_so_far_d1 {
+                Some(_) => (),
+                None => best_move_so_far_d1 = Some(mv.clone()),
+            }
+            let board_d1 = Board::move_piece(b, mv.to_algebraic());
+            let valid_moves_d1: Vec<Move> = Board::find_valid_moves(&board_d1)
                 .into_iter()
-                .map(|m| m.value)
-                .min()
-                .unwrap(),
-            Team::Black => analyzed_moves
+                .filter(|m| !Board::is_own_king_checked(&board_d1, m))
+                .collect();
+            let best_next_move_value_d1 = valid_moves_d1
                 .clone()
                 .into_iter()
                 .map(|m| m.value)
                 .max()
-                .unwrap(),
-        };
-        let items: Vec<Move> = analyzed_moves
-            .into_iter()
-            .filter(|m| m.value == val.to_owned())
-            .collect();
-        let index = (rand::random::<f32>() * items.len() as f32).floor() as usize;
-        let item = &items[index];
-        let next = Location::coords_to_str(
-            item.from.column as usize,
-            item.from.row as usize,
-            item.to.column as usize,
-            item.to.row as usize,
-        );
+                .unwrap();
+            let best_value_moves_d2: Vec<Move> = valid_moves_d1
+                .into_iter()
+                .filter(|m| m.value == best_next_move_value_d1.to_owned())
+                .collect();
+            // d2
+            for mvv in best_value_moves_d2 {
+                let board_d2 = Board::move_piece(&board_d1, mvv.to_algebraic());
+                let valid_moves_d2: Vec<Move> = Board::find_valid_moves(&board_d2)
+                    .into_iter()
+                    .filter(|m| !Board::is_own_king_checked(&board_d1, m))
+                    .collect();
+                let best_next_move_value_d2 = valid_moves_d2
+                    .clone()
+                    .into_iter()
+                    .map(|m| m.value)
+                    .max()
+                    .unwrap();
+                let move_value =
+                    best_next_move_value - best_next_move_value_d1 + best_next_move_value_d2;
+                if move_value >= best_move_so_far_d1.unwrap().value {
+                    println!(
+                        "{}:{}:{}={}",
+                        best_next_move_value,
+                        best_next_move_value_d1,
+                        best_next_move_value_d2,
+                        move_value
+                    );
+                    best_move_so_far_d1 = Move::new(mv.from, mv.to, mv.captured, move_value);
+                }
+            }
+        }
+
+        let next = best_move_so_far_d1.unwrap().to_algebraic();
+        println!("next_move {:?}", best_move_so_far_d1);
         println!("next_move {:?}", next);
-        println!("next_move {:?}", item);
         unsafe {
             println!("{}", MOVE_COUNTER);
         }
         return next;
     }
 
-    pub fn find_next_move(b: &Board, depth: usize) -> String {
+    pub fn find_next_move(b: &Board, _depth: usize) -> String {
         let all_possible_moves: Vec<Move> = Board::find_valid_moves(&b)
             .into_iter()
             .filter(|m| !Board::is_own_king_checked(&b, m))
             .collect();
 
-        return Board::choose_next_move(b, all_possible_moves, depth);
+        return Board::choose_next_move(b, all_possible_moves);
     }
 
     pub fn find_valid_moves(b: &Board) -> Vec<Move> {
@@ -774,7 +744,7 @@ mod tests {
     fn create_chess_board() {
         let mut board = Board::new();
         println!("{}", board);
-        for _n in 0..80 {
+        for _n in 0..120 {
             let next_move = Board::find_next_move(&board, 2);
             board = Board::move_piece(&board, next_move);
             println!("{}", board);

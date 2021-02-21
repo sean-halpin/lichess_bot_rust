@@ -1,5 +1,6 @@
 mod chess;
 use crate::chess::Board;
+use crate::chess::Team;
 use bufstream::BufStream;
 use native_tls::TlsConnector;
 use native_tls::TlsStream;
@@ -55,19 +56,24 @@ async fn play_game(game_id: String) {
                             board = Board::move_piece(&board, next_move.to_string());
                         }
                         println!("{}", board);
-                        let bot_move = Board::find_next_move(&board, 2);
-                        let auth_header_value = format!("Bearer {}", lichess_api_token);
-                        let client = reqwest::Client::builder().build().unwrap();
-                        let endpoint = format!(
-                            "https://lichess.org/api/bot/game/{}/move/{}",
-                            game_id, bot_move
-                        );
-                        let _res = client
-                            .post(&endpoint)
-                            .header(header::AUTHORIZATION, auth_header_value)
-                            .send()
-                            .await
-                            .unwrap();
+                        match board.next_to_move {
+                            Team::Black => {
+                                let bot_move = Board::find_next_move(&board, 2);
+                                let auth_header_value = format!("Bearer {}", lichess_api_token);
+                                let client = reqwest::Client::builder().build().unwrap();
+                                let endpoint = format!(
+                                    "https://lichess.org/api/bot/game/{}/move/{}",
+                                    game_id, bot_move
+                                );
+                                let _res = client
+                                    .post(&endpoint)
+                                    .header(header::AUTHORIZATION, auth_header_value)
+                                    .send()
+                                    .await
+                                    .unwrap();
+                            }
+                            _ => {}
+                        }
                     }
                     _ => {}
                 }
