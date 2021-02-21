@@ -1,6 +1,8 @@
 use colored::*;
 use std::fmt;
 
+static mut move_counter: usize = 0;
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Team {
     White,
@@ -74,6 +76,9 @@ pub struct Location {
 
 impl Location {
     fn new(row: isize, column: isize) -> Self {
+        unsafe {
+            move_counter = move_counter + 1;
+        }
         if (row >= 0) && (row <= 7) && (column >= 0) && (column <= 7) {
             return Location {
                 row,
@@ -558,6 +563,7 @@ impl Board {
             },
             _ => {}
         }
+
         return moves
             .into_iter()
             .filter(|m| m.is_some())
@@ -566,53 +572,65 @@ impl Board {
             .collect();
     }
 
-    pub fn get_capture_metric(b: &Board, m: &Move) -> isize {
-        let board = Board::move_piece(
-            &b,
-            Location::coords_to_str(
-                m.from.column as usize,
-                m.from.row as usize,
-                m.to.column as usize,
-                m.to.row as usize,
-            ),
-        );
-        let all_possible_next_moves: Vec<Move> = Board::find_valid_moves(&board)
-            .into_iter()
-            .filter(|m| !Board::is_own_king_checked(&board, m))
-            .collect();
-        let capture_values: Vec<isize> = all_possible_next_moves
-            .into_iter()
-            .filter(|m| m.captured.is_some())
-            .map(|m| m.captured.unwrap().valuation())
-            .collect();
-        let max = capture_values.clone().into_iter().clone().max();
-        let min = capture_values.clone().into_iter().clone().min();
-        return max.unwrap_or(0) - min.unwrap_or(0);
+    pub fn get_capture_metric(b: &Board, m: &Move, depth: usize) -> isize {
+        if depth == 1 {
+            let board = Board::move_piece(
+                &b,
+                Location::coords_to_str(
+                    m.from.column as usize,
+                    m.from.row as usize,
+                    m.to.column as usize,
+                    m.to.row as usize,
+                ),
+            );
+            let all_possible_next_moves: Vec<Move> = Board::find_valid_moves(&board)
+                .into_iter()
+                .filter(|m| !Board::is_own_king_checked(&board, m))
+                .collect();
+            let capture_values: Vec<isize> = all_possible_next_moves
+                .into_iter()
+                .filter(|m| m.captured.is_some())
+                .map(|m| m.captured.unwrap().valuation())
+                .collect();
+            let sum: isize = capture_values.clone().into_iter().clone().max().unwrap_or(0);
+            return sum;
+        } else {
+            let board = Board::move_piece(
+                &b,
+                Location::coords_to_str(
+                    m.from.column as usize,
+                    m.from.row as usize,
+                    m.to.column as usize,
+                    m.to.row as usize,
+                ),
+            );
+            let all_possible_next_moves: Vec<Move> = Board::find_valid_moves(&board)
+                .into_iter()
+                .filter(|m| !Board::is_own_king_checked(&board, m))
+                .collect();
+            let mut counter = 0;
+            let mut running_count = 0;
+            for m in &all_possible_next_moves {
+                Board::get_capture_metric(b, &m, depth - 1);
+                let capture_values: Vec<isize> = all_possible_next_moves
+                    .clone()
+                    .into_iter()
+                    .filter(|m| m.captured.is_some())
+                    .map(|m| m.captured.unwrap().valuation())
+                    .collect();
+                let sum: isize = capture_values.clone().into_iter().clone().max().unwrap_or(0);
+                counter = counter + 1;
+                running_count = counter + sum;
+            }
+            return running_count;
+        }
     }
 
     pub fn get_move_value(b: &Board, m: &Move, depth: usize) -> isize {
         let t = b.next_to_move;
-
-        // let all_possible_next_moves: Vec<Move> = Board::find_valid_moves(&b)
-        //     .into_iter()
-        //     .filter(|m| !Board::is_own_king_checked(&b, m))
-        //     .collect();
-        
-        if depth == 1 {
-            match t {
-                Team::White => return Board::get_capture_metric(b, m),
-                Team::Black => return Board::get_capture_metric(b, m) * -1,
-            }
-        } else {
-            match t {
-                Team::White => {
-                    return Board::get_capture_metric(b, m) + Board::get_move_value(b, m, depth - 1)
-                }
-                Team::Black => {
-                    return (Board::get_capture_metric(b, m) * -1)
-                        + Board::get_move_value(b, m, depth - 1)
-                }
-            }
+        match t {
+            Team::White => return Board::get_capture_metric(b, m, depth),
+            Team::Black => return Board::get_capture_metric(b, m, depth) * -1,
         }
     }
 
@@ -632,7 +650,10 @@ impl Board {
             .collect();
         // println!("analyzed_moves {:?}", analyzed_moves);
 
-        let item = analyzed_moves.into_iter().max_by_key(|m| m.value).unwrap();
+        let item = match b.next_to_move {
+            Team::White => analyzed_moves.into_iter().min_by_key(|m| m.value).unwrap(),
+            Team::Black => analyzed_moves.into_iter().max_by_key(|m| m.value).unwrap(),
+        };
         let next = Location::coords_to_str(
             item.from.column as usize,
             item.from.row as usize,
@@ -641,6 +662,9 @@ impl Board {
         );
         println!("next_move {:?}", next);
         println!("next_move {:?}", item);
+        unsafe {
+            println!("{}", move_counter);
+        }
         return next;
     }
 
@@ -712,8 +736,8 @@ mod tests {
     fn create_chess_board() {
         let mut board = Board::new();
         println!("{}", board);
-        for _n in 0..30 {
-            let next_move = Board::find_next_move(&board, 12);
+        for _n in 0..80 {
+            let next_move = Board::find_next_move(&board, 3);
             board = Board::move_piece(&board, next_move);
             println!("{}", board);
         }
