@@ -1,3 +1,5 @@
+use std::time::Duration;
+use std::thread;
 mod chess;
 use crate::chess::Board;
 use bufstream::BufStream;
@@ -81,6 +83,7 @@ async fn play_game(game_id: String) {
                         println!("{}", board);
                         match board.next_to_move {
                             _ => {
+                                thread::sleep(Duration::from_millis(20));
                                 let bot_move = Board::find_next_move(&board, 2);
                                 let auth_header_value = format!("Bearer {}", lichess_api_token);
                                 let client = reqwest::Client::builder().build().unwrap();
