@@ -1,6 +1,5 @@
 mod chess;
 use crate::chess::Board;
-use crate::chess::Team;
 use bufstream::BufStream;
 use native_tls::TlsConnector;
 use native_tls::TlsStream;
@@ -72,7 +71,6 @@ async fn play_game(game_id: String) {
                                     .await
                                     .unwrap();
                             }
-                            _ => {}
                         }
                     }
                     r#""gameState""# => {
