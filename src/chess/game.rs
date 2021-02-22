@@ -314,6 +314,25 @@ impl Board {
                         }
                     }
                 },
+                Rank::King => {
+                    cloned_board.squares[to_row][to_col].piece = Some(*p);
+                    cloned_board.squares[from_row][from_col].piece = None;
+                    if (from_col as isize - to_col as isize).abs() == 2 {
+                        match to_col {
+                            2 => {
+                                let rook = cloned_board.squares[from_row][0].piece.unwrap();
+                                cloned_board.squares[to_row][to_col + 1].piece = Some(rook);
+                                cloned_board.squares[to_row][0].piece = None;
+                            }
+                            6 => {
+                                let rook = cloned_board.squares[from_row][7].piece.unwrap();
+                                cloned_board.squares[to_row][to_col - 1].piece = Some(rook);
+                                cloned_board.squares[to_row][7].piece = None;
+                            }
+                            _ => (),
+                        }
+                    }
+                }
                 _ => {
                     cloned_board.squares[to_row][to_col].piece = Some(*p);
                     cloned_board.squares[from_row][from_col].piece = None;

@@ -48,7 +48,6 @@ async fn play_game(game_id: String) {
                 let msg_type = v["type"].to_string();
                 match msg_type.as_ref() {
                     r#""gameFull""# => {
-                        println!("{}", buf);
                         let mut board = Board::new();
                         let game_id = v["id"].as_str().unwrap().to_owned();
                         for next_move in v["state"]["moves"].as_str().unwrap().split_whitespace() {
@@ -76,6 +75,7 @@ async fn play_game(game_id: String) {
                     r#""gameState""# => {
                         let mut board = Board::new();
                         for next_move in v["moves"].as_str().unwrap().split_whitespace() {
+                            println!("{}", next_move);
                             board = Board::move_piece(&board, next_move.to_string());
                         }
                         println!("{}", board);
