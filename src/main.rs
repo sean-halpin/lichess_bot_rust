@@ -50,15 +50,14 @@ async fn play_game(game_id: String) {
                 match msg_type.as_ref() {
                     r#""gameFull""# => {
                         println!("{}", buf);
-                    }
-                    r#""gameState""# => {
                         let mut board = Board::new();
-                        for next_move in v["moves"].as_str().unwrap().split_whitespace() {
+                        let game_id = v["id"].as_str().unwrap().to_owned();
+                        for next_move in v["state"]["moves"].as_str().unwrap().split_whitespace() {
                             board = Board::move_piece(&board, next_move.to_string());
                         }
                         println!("{}", board);
                         match board.next_to_move {
-                            Team::Black => {
+                            _ => {
                                 let bot_move = Board::find_next_move(&board, 2);
                                 let auth_header_value = format!("Bearer {}", lichess_api_token);
                                 let client = reqwest::Client::builder().build().unwrap();
@@ -74,6 +73,30 @@ async fn play_game(game_id: String) {
                                     .unwrap();
                             }
                             _ => {}
+                        }
+                    }
+                    r#""gameState""# => {
+                        let mut board = Board::new();
+                        for next_move in v["moves"].as_str().unwrap().split_whitespace() {
+                            board = Board::move_piece(&board, next_move.to_string());
+                        }
+                        println!("{}", board);
+                        match board.next_to_move {
+                            _ => {
+                                let bot_move = Board::find_next_move(&board, 2);
+                                let auth_header_value = format!("Bearer {}", lichess_api_token);
+                                let client = reqwest::Client::builder().build().unwrap();
+                                let endpoint = format!(
+                                    "https://lichess.org/api/bot/game/{}/move/{}",
+                                    game_id, bot_move
+                                );
+                                let _res = client
+                                    .post(&endpoint)
+                                    .header(header::AUTHORIZATION, auth_header_value)
+                                    .send()
+                                    .await
+                                    .unwrap();
+                            }
                         }
                     }
                     _ => {}
