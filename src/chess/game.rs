@@ -621,7 +621,7 @@ impl Board {
             let board_d1 = Board::move_piece(b, mv.to_algebraic());
             let valid_moves_d1: Vec<Move> = Board::find_valid_moves(&board_d1)
                 .into_iter()
-                .filter(|m| !Board::is_own_king_checked(&board_d1, m))
+                .filter(|m| !Board::is_own_king_checked(&b, m))
                 .collect();
             let best_next_move_value_d1 = valid_moves_d1
                 .clone()
@@ -629,7 +629,7 @@ impl Board {
                 .map(|m| m.value)
                 .max()
                 .unwrap_or(0);
-            let move_value_1 = mv.value - best_next_move_value_d1;
+            let move_value_1 = mv.value;
             if move_value_1 >= best_move_so_far_d1.unwrap().value {
                 best_move_so_far_d1 = Move::new(mv.from, mv.to, mv.captured, move_value_1);
                 let best_value_moves_d2: Vec<Move> = valid_moves_d1
@@ -638,48 +638,23 @@ impl Board {
                     .collect();
                 // d2
                 for mvv in best_value_moves_d2 {
-                    let board_d2 = Board::move_piece(&board_d1, mvv.to_algebraic());
-                    let valid_moves_d2: Vec<Move> = Board::find_valid_moves(&board_d2)
-                        .into_iter()
-                        .filter(|m| !Board::is_own_king_checked(&board_d2, m))
-                        .collect();
-                    let best_next_move_value_d2 = valid_moves_d2
-                        .clone()
-                        .into_iter()
-                        .map(|m| m.value)
-                        .max()
-                        .unwrap_or(0);
-                    let move_value_2 = move_value_1 + best_next_move_value_d2;
+                    let move_value_2 = move_value_1 - mvv.value;
                     if move_value_2 >= best_move_so_far_d1.unwrap().value {
                         best_move_so_far_d1 = Move::new(mv.from, mv.to, mv.captured, move_value_2);
-                        {
-                            let best_value_moves_d3: Vec<Move> = valid_moves_d2
-                                .into_iter()
-                                .filter(|m| m.value == best_next_move_value_d1.to_owned())
-                                .collect();
-                            //
-                            for mvvv in best_value_moves_d3 {
-                                let board_d3 = Board::move_piece(&board_d2, mvvv.to_algebraic());
-                                let valid_moves_d3: Vec<Move> = Board::find_valid_moves(&board_d3)
-                                    .into_iter()
-                                    .filter(|m| !Board::is_own_king_checked(&board_d3, m))
-                                    .collect();
-                                let best_next_move_value_d3 = valid_moves_d3
-                                    .clone()
-                                    .into_iter()
-                                    .map(|m| m.value)
-                                    .max()
-                                    .unwrap_or(0);
-                                let move_value_3 = move_value_2 - best_next_move_value_d3;
-                                if move_value_3 >= best_move_so_far_d1.unwrap().value {
-                                    best_move_so_far_d1 =
-                                        Move::new(mv.from, mv.to, mv.captured, move_value_3);
-                                }
-                            }
-                        }
                     }
                 }
             }
+        }
+
+        if best_move_so_far_d1.unwrap().value == 0 {
+            let valid_moves_d1: Vec<Move> = Board::find_valid_moves(&b)
+                .into_iter()
+                .filter(|m| !Board::is_own_king_checked(&b, m))
+                .collect();
+            let index = (rand::random::<f32>() * valid_moves_d1.len() as f32).floor() as usize;
+            let item = &valid_moves_d1[index];
+            best_move_so_far_d1 = Some(item.clone());
+            println!("RANDOM");
         }
 
         let next = best_move_so_far_d1.unwrap().to_algebraic();

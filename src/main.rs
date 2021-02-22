@@ -48,11 +48,12 @@ async fn play_game(game_id: String) {
             Ok(v) => {
                 let msg_type = v["type"].to_string();
                 match msg_type.as_ref() {
-                    r#""gameFull""# => {}
+                    r#""gameFull""# => {
+                        println!("{}", buf);
+                    }
                     r#""gameState""# => {
                         let mut board = Board::new();
                         for next_move in v["moves"].as_str().unwrap().split_whitespace() {
-                            println!("{}", next_move);
                             board = Board::move_piece(&board, next_move.to_string());
                         }
                         println!("{}", board);
