@@ -650,17 +650,18 @@ impl Board {
     ) -> isize {
         let mut alpha = a.clone();
         let mut beta = b.clone();
-        let valid_moves: Vec<Move> = Board::find_valid_moves(&board)
-            .into_iter()
-            .filter(|m| !Board::is_own_king_checked(&board, m))
-            .collect();
         if depth == 0 {
             return node.value;
         }
+        let node_board = Board::move_piece(&board, node.to_algebraic());
+        let valid_moves: Vec<Move> = Board::find_valid_moves(&node_board)
+            .into_iter()
+            .filter(|m| !Board::is_own_king_checked(&node_board, m))
+            .collect();
         if maximizing_player {
             let mut value = isize::MIN;
             for child in valid_moves {
-                let child_board = Board::move_piece(&board, child.to_algebraic());
+                let child_board = Board::move_piece(&node_board, child.to_algebraic());
                 value = cmp::max(
                     value,
                     Board::alphabeta(child_board, child, depth - 1, alpha, beta, false),
@@ -674,7 +675,7 @@ impl Board {
         } else {
             let mut v = isize::MAX;
             for child in valid_moves {
-                let child_board = Board::move_piece(&board, child.to_algebraic());
+                let child_board = Board::move_piece(&node_board, child.to_algebraic());
                 v = cmp::min(
                     v,
                     Board::alphabeta(child_board, child, depth - 1, alpha, beta, true),
