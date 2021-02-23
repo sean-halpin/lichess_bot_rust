@@ -1,4 +1,5 @@
 use colored::*;
+use std::cmp;
 use std::fmt;
 
 static mut MOVE_COUNTER: usize = 0;
@@ -20,15 +21,29 @@ pub enum Rank {
 }
 
 impl Rank {
-    fn valuation(&self) -> isize {
-        return match self {
-            Rank::King => 99,
-            Rank::Queen => 9,
-            Rank::Rook => 5,
-            Rank::Knight => 3,
-            Rank::Bishop => 3,
-            Rank::Pawn => 1,
-        };
+    fn valuation(&self, t: Team) -> isize {
+        match t {
+            Team::White => {
+                return match self {
+                    Rank::King => 99,
+                    Rank::Queen => 9,
+                    Rank::Rook => 5,
+                    Rank::Knight => 3,
+                    Rank::Bishop => 3,
+                    Rank::Pawn => 1,
+                };
+            }
+            Team::Black => {
+                return match self {
+                    Rank::King => -99,
+                    Rank::Queen => -9,
+                    Rank::Rook => -5,
+                    Rank::Knight => -3,
+                    Rank::Bishop => -3,
+                    Rank::Pawn => -1,
+                };
+            }
+        }
     }
 }
 
@@ -348,33 +363,30 @@ impl Board {
     }
 
     fn is_own_king_checked(b: &Board, m: &Move) -> bool {
-        for r in 0..8 {
-            for c in 0..8 {
-                let sqr = &b.squares[r][c];
-                if sqr.piece.is_some() {
-                    let p = sqr.piece.as_ref().unwrap();
-                    if (p.rank == Rank::King) && (p.team == b.next_to_move) {
-                        let move_string = Location::coords_to_str(
-                            m.from.column as usize,
-                            m.from.row as usize,
-                            m.to.column as usize,
-                            m.to.row as usize,
-                        );
-                        let future_board = Board::move_piece(&b, move_string);
-                        let next_moves = Board::find_valid_moves(&future_board);
-                        return next_moves
-                            .into_iter()
-                            .filter(|m| m.captured.is_some())
-                            .map(|m| m.captured.unwrap())
-                            .filter(|c| c == &Rank::King)
-                            .collect::<Vec<Rank>>()
-                            .len()
-                            > 0;
-                    }
-                }
-            }
-        }
-        return false;
+        let move_string = Location::coords_to_str(
+            m.from.column as usize,
+            m.from.row as usize,
+            m.to.column as usize,
+            m.to.row as usize,
+        );
+        let future_board = Board::move_piece(&b, move_string);
+        let next_moves = Board::find_valid_moves(&future_board);
+        return next_moves
+            .into_iter()
+            .filter(|m| {
+                m.captured.is_some()
+                    && m.captured.unwrap() == Rank::King
+                    && future_board.squares[m.to.row as usize][m.to.column as usize]
+                        .piece
+                        .unwrap()
+                        .team
+                        == b.next_to_move
+            })
+            .map(|m| m.captured.unwrap())
+            .filter(|c| c == &Rank::King)
+            .collect::<Vec<Rank>>()
+            .len()
+            > 0;
     }
 
     pub fn navigate(&self, dir: Direction, from: Location) -> Vec<Option<Move>> {
@@ -442,7 +454,7 @@ impl Board {
                                 from,
                                 to,
                                 Some(piece.rank.clone()),
-                                piece.rank.valuation(),
+                                piece.rank.valuation(self.next_to_move),
                             );
                             moves.push(n);
                             continue;
@@ -500,7 +512,7 @@ impl Board {
                                     from,
                                     to,
                                     Some(piece.rank.clone()),
-                                    piece.rank.valuation(),
+                                    piece.rank.valuation(self.next_to_move),
                                 );
                                 moves.push(n);
                                 break;
@@ -553,7 +565,7 @@ impl Board {
                                 from,
                                 to,
                                 Some(piece.rank.clone()),
-                                piece.rank.valuation(),
+                                piece.rank.valuation(self.next_to_move),
                             );
                             moves.push(n);
                             break;
@@ -620,7 +632,6 @@ impl Board {
             },
             _ => {}
         }
-
         return moves
             .into_iter()
             .filter(|m| m.is_some())
@@ -629,69 +640,110 @@ impl Board {
             .collect();
     }
 
-    pub fn choose_next_move(b: &Board, moves: Vec<Move>) -> String {
-        let mut best_move_so_far_d1: Option<Move> = None;
-        // d1
-        for mv in moves {
-            match best_move_so_far_d1 {
-                Some(_) => (),
-                None => best_move_so_far_d1 = Some(mv.clone()),
-            }
-            let board_d1 = Board::move_piece(b, mv.to_algebraic());
-            let valid_moves_d1: Vec<Move> = Board::find_valid_moves(&board_d1)
-                .into_iter()
-                .filter(|m| !Board::is_own_king_checked(&b, m))
-                .collect();
-            let best_next_move_value_d1 = valid_moves_d1
-                .clone()
-                .into_iter()
-                .map(|m| m.value)
-                .max()
-                .unwrap_or(0);
-            let move_value_1 = mv.value;
-            if move_value_1 >= best_move_so_far_d1.unwrap().value {
-                best_move_so_far_d1 = Move::new(mv.from, mv.to, mv.captured, move_value_1);
-                let best_value_moves_d2: Vec<Move> = valid_moves_d1
-                    .into_iter()
-                    .filter(|m| m.value == best_next_move_value_d1.to_owned())
-                    .collect();
-                // d2
-                for mvv in best_value_moves_d2 {
-                    let move_value_2 = move_value_1 - mvv.value;
-                    if move_value_2 >= best_move_so_far_d1.unwrap().value {
-                        best_move_so_far_d1 = Move::new(mv.from, mv.to, mv.captured, move_value_2);
-                    }
+    pub fn alphabeta(
+        board: Board,
+        node: Move,
+        depth: isize,
+        a: isize,
+        b: isize,
+        maximizing_player: bool,
+    ) -> isize {
+        let mut alpha = a.clone();
+        let mut beta = b.clone();
+        let valid_moves: Vec<Move> = Board::find_valid_moves(&board)
+            .into_iter()
+            .filter(|m| !Board::is_own_king_checked(&board, m))
+            .collect();
+        if depth == 0 {
+            return node.value;
+        }
+        if maximizing_player {
+            let mut value = isize::MIN;
+            for child in valid_moves {
+                let child_board = Board::move_piece(&board, child.to_algebraic());
+                value = cmp::max(
+                    value,
+                    Board::alphabeta(child_board, child, depth - 1, alpha, beta, false),
+                );
+                alpha = cmp::max(alpha, value);
+                if alpha >= b {
+                    break;
                 }
             }
+            return value;
+        } else {
+            let mut v = isize::MAX;
+            for child in valid_moves {
+                let child_board = Board::move_piece(&board, child.to_algebraic());
+                v = cmp::min(
+                    v,
+                    Board::alphabeta(child_board, child, depth - 1, alpha, beta, true),
+                );
+                beta = cmp::min(beta, v);
+                if alpha <= beta {
+                    break;
+                }
+            }
+            return v;
         }
-
-        if best_move_so_far_d1.unwrap().value == 0 {
-            let valid_moves_d1: Vec<Move> = Board::find_valid_moves(&b)
-                .into_iter()
-                .filter(|m| !Board::is_own_king_checked(&b, m))
-                .collect();
-            let index = (rand::random::<f32>() * valid_moves_d1.len() as f32).floor() as usize;
-            let item = &valid_moves_d1[index];
-            best_move_so_far_d1 = Some(item.clone());
-            println!("RANDOM");
-        }
-
-        let next = best_move_so_far_d1.unwrap().to_algebraic();
-        println!("next_move {:?}", best_move_so_far_d1);
-        println!("next_move {:?}", next);
-        unsafe {
-            println!("{}", MOVE_COUNTER);
-        }
-        return next;
     }
 
-    pub fn find_next_move(b: &Board, _depth: usize) -> String {
+    pub fn choose_next_move(b: Board, moves: Vec<Move>, _depth: isize) -> String {
+        let res = moves.into_iter().map(|m| {
+            Move::new(
+                m.from,
+                m.to,
+                m.captured,
+                Board::alphabeta(
+                    b.clone(),
+                    m,
+                    _depth,
+                    isize::MIN,
+                    isize::MAX,
+                    b.next_to_move == Team::White,
+                ),
+            )
+            .unwrap()
+        });
+        let best = match b.next_to_move {
+            Team::White => {
+                let max_val = res.clone().into_iter().map(|m| m.value).max().unwrap_or(0);
+                let best_moves: Vec<Move> = res
+                    .clone()
+                    .into_iter()
+                    .filter(|m| m.value == max_val)
+                    .collect();
+                let index = (rand::random::<f32>() * best_moves.len() as f32).floor() as usize;
+                best_moves[index]
+                // res.max_by_key(|m| m.unwrap().value).unwrap().unwrap()
+            }
+            Team::Black => {
+                let min_val = res.clone().into_iter().map(|m| m.value).min().unwrap_or(0);
+                let best_moves: Vec<Move> = res
+                    .clone()
+                    .into_iter()
+                    .filter(|m| m.value == min_val)
+                    .collect();
+                let index = (rand::random::<f32>() * best_moves.len() as f32).floor() as usize;
+                best_moves[index]
+                // res.min_by_key(|m| m.unwrap().value).unwrap().unwrap()
+            }
+        };
+        let all: Vec<isize> = res.clone().into_iter().map(|m| m.value).collect();
+        println!("possible move values: {:?}", all);
+        println!("who moves: {:?}", b.next_to_move);
+        println!("best move value: {:?}", best.value);
+        return best.to_algebraic();
+    }
+
+    pub fn find_next_move(b: &Board, _depth: isize) -> String {
         let all_possible_moves: Vec<Move> = Board::find_valid_moves(&b)
             .into_iter()
             .filter(|m| !Board::is_own_king_checked(&b, m))
             .collect();
-
-        return Board::choose_next_move(b, all_possible_moves);
+        let chosen = Board::choose_next_move(b.clone(), all_possible_moves, _depth);
+        println!("Chosen Move: {}", chosen);
+        return chosen;
     }
 
     pub fn find_valid_moves(b: &Board) -> Vec<Move> {
@@ -754,6 +806,9 @@ mod tests {
         let mut board = Board::new();
         println!("{}", board);
         for _n in 0..120 {
+            let next_move = Board::find_next_move(&board, 2);
+            board = Board::move_piece(&board, next_move);
+            println!("{}", board);
             let next_move = Board::find_next_move(&board, 2);
             board = Board::move_piece(&board, next_move);
             println!("{}", board);

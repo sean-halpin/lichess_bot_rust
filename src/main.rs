@@ -1,7 +1,7 @@
-use std::time::Duration;
 use std::thread;
+use std::time::Duration;
 mod chess;
-use crate::chess::Board;
+use crate::chess::*;
 use bufstream::BufStream;
 use native_tls::TlsConnector;
 use native_tls::TlsStream;
@@ -41,37 +41,41 @@ async fn play_game(game_id: String) {
         "GET /api/bot/game/stream/{} HTTP/1.1\nHost: lichess.org\nUser-Agent: curl/7.68.0\nAccept: */*\nAuthorization: Bearer {}\n\n", 
     game_id, lichess_api_token);
     send_msg(&mut stream, &stream_event_msg);
-
+    let mut bot_team = Team::White;
     let mut stream = BufStream::new(&mut stream);
     let mut buf = String::new();
     while stream.read_line(&mut buf).unwrap_or(0) > 0 {
         match try_parse_json(&buf) {
             Ok(v) => {
+                // println!("{}", buf);
                 let msg_type = v["type"].to_string();
                 match msg_type.as_ref() {
                     r#""gameFull""# => {
                         let mut board = Board::new();
+                        let white_team = v["white"]["name"].as_str().unwrap();
+                        match white_team {
+                            "gambinobot" => bot_team = Team::White,
+                            _ => bot_team = Team::Black,
+                        }
                         let game_id = v["id"].as_str().unwrap().to_owned();
                         for next_move in v["state"]["moves"].as_str().unwrap().split_whitespace() {
                             board = Board::move_piece(&board, next_move.to_string());
                         }
                         println!("{}", board);
-                        match board.next_to_move {
-                            _ => {
-                                let bot_move = Board::find_next_move(&board, 2);
-                                let auth_header_value = format!("Bearer {}", lichess_api_token);
-                                let client = reqwest::Client::builder().build().unwrap();
-                                let endpoint = format!(
-                                    "https://lichess.org/api/bot/game/{}/move/{}",
-                                    game_id, bot_move
-                                );
-                                let _res = client
-                                    .post(&endpoint)
-                                    .header(header::AUTHORIZATION, auth_header_value)
-                                    .send()
-                                    .await
-                                    .unwrap();
-                            }
+                        if board.next_to_move == bot_team {
+                            let bot_move = Board::find_next_move(&board, 2);
+                            let auth_header_value = format!("Bearer {}", lichess_api_token);
+                            let client = reqwest::Client::builder().build().unwrap();
+                            let endpoint = format!(
+                                "https://lichess.org/api/bot/game/{}/move/{}",
+                                game_id, bot_move
+                            );
+                            let _res = client
+                                .post(&endpoint)
+                                .header(header::AUTHORIZATION, auth_header_value)
+                                .send()
+                                .await
+                                .unwrap();
                         }
                     }
                     r#""gameState""# => {
@@ -81,23 +85,21 @@ async fn play_game(game_id: String) {
                             board = Board::move_piece(&board, next_move.to_string());
                         }
                         println!("{}", board);
-                        match board.next_to_move {
-                            _ => {
-                                thread::sleep(Duration::from_millis(600));
-                                let bot_move = Board::find_next_move(&board, 2);
-                                let auth_header_value = format!("Bearer {}", lichess_api_token);
-                                let client = reqwest::Client::builder().build().unwrap();
-                                let endpoint = format!(
-                                    "https://lichess.org/api/bot/game/{}/move/{}",
-                                    game_id, bot_move
-                                );
-                                let _res = client
-                                    .post(&endpoint)
-                                    .header(header::AUTHORIZATION, auth_header_value)
-                                    .send()
-                                    .await
-                                    .unwrap();
-                            }
+                        if board.next_to_move == bot_team {
+                            thread::sleep(Duration::from_millis(100));
+                            let bot_move = Board::find_next_move(&board, 2);
+                            let auth_header_value = format!("Bearer {}", lichess_api_token);
+                            let client = reqwest::Client::builder().build().unwrap();
+                            let endpoint = format!(
+                                "https://lichess.org/api/bot/game/{}/move/{}",
+                                game_id, bot_move
+                            );
+                            let _res = client
+                                .post(&endpoint)
+                                .header(header::AUTHORIZATION, auth_header_value)
+                                .send()
+                                .await
+                                .unwrap();
                         }
                     }
                     _ => {}
