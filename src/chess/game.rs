@@ -645,48 +645,47 @@ impl Board {
         board: Board,
         node: Move,
         depth: isize,
-        a: isize,
-        b: isize,
+        mut alpha: isize,
+        mut beta: isize,
         maximizing_player: bool,
     ) -> isize {
-        let mut alpha = a.clone();
-        let mut beta = b.clone();
         if depth == 0 {
             return node.value;
         }
         let node_board = Board::move_piece(&board, node.to_algebraic());
-        let valid_moves: Vec<Move> = Board::find_valid_moves(&node_board)
+        let mut valid_moves: Vec<Move> = Board::find_valid_moves(&node_board)
             .into_iter()
             // .filter(|m| !Board::is_own_king_checked(&node_board, m))
             .collect();
+        valid_moves.sort_by(|a, b| a.value.cmp(&b.value));
         if maximizing_player {
             let mut value = isize::MIN;
-            for child in valid_moves {
+            for child in valid_moves.into_iter() {
                 let child_board = Board::move_piece(&node_board, child.to_algebraic());
                 value = cmp::max(
                     value,
                     Board::alphabeta(child_board, child, depth - 1, alpha, beta, false),
                 );
                 alpha = cmp::max(alpha, value);
-                if alpha >= b {
+                if alpha >= beta {
                     break;
                 }
             }
             return value;
         } else {
-            let mut v = isize::MAX;
-            for child in valid_moves {
+            let mut value = isize::MAX;
+            for child in valid_moves.into_iter() {
                 let child_board = Board::move_piece(&node_board, child.to_algebraic());
-                v = cmp::min(
-                    v,
+                value = cmp::min(
+                    value,
                     Board::alphabeta(child_board, child, depth - 1, alpha, beta, true),
                 );
-                beta = cmp::min(beta, v);
-                if alpha <= beta {
+                beta = cmp::min(beta, value);
+                if beta <= alpha {
                     break;
                 }
             }
-            return v;
+            return value;
         }
     }
 
@@ -715,8 +714,20 @@ impl Board {
                     .into_iter()
                     .filter(|m| m.value == max_val)
                     .collect();
-                let index = (rand::random::<f32>() * best_moves.len() as f32).floor() as usize;
-                best_moves[index]
+                let best_moves_capture: Vec<Move> = res
+                    .clone()
+                    .into_iter()
+                    .filter(|m| m.value == max_val)
+                    .filter(|m| m.captured.is_some())
+                    .collect();
+                if best_moves_capture.len() > 0 {
+                    let index =
+                        (rand::random::<f32>() * best_moves_capture.len() as f32).floor() as usize;
+                    best_moves_capture[index]
+                } else {
+                    let index = (rand::random::<f32>() * best_moves.len() as f32).floor() as usize;
+                    best_moves[index]
+                }
                 // res.max_by_key(|m| m.unwrap().value).unwrap().unwrap()
             }
             Team::Black => {
@@ -726,8 +737,20 @@ impl Board {
                     .into_iter()
                     .filter(|m| m.value == min_val)
                     .collect();
-                let index = (rand::random::<f32>() * best_moves.len() as f32).floor() as usize;
-                best_moves[index]
+                let best_moves_capture: Vec<Move> = res
+                    .clone()
+                    .into_iter()
+                    .filter(|m| m.value == min_val)
+                    .filter(|m| m.captured.is_some())
+                    .collect();
+                if best_moves_capture.len() > 0 {
+                    let index =
+                        (rand::random::<f32>() * best_moves_capture.len() as f32).floor() as usize;
+                    best_moves_capture[index]
+                } else {
+                    let index = (rand::random::<f32>() * best_moves.len() as f32).floor() as usize;
+                    best_moves[index]
+                }
                 // res.min_by_key(|m| m.unwrap().value).unwrap().unwrap()
             }
         };
@@ -795,6 +818,19 @@ impl std::fmt::Display for Board {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn create_situation() {
+        let moves = "e2e4 b7b6 d2d4 g8h6 b1c3 g7g6 g1f3 d7d6 f1b5 c7c6 b5c6 b8c6 c1h6 c8b7 h6f8 h7h5 f3g5 h8f8 g5h7 f8h8 h7f6 e7f6 e4e5 h5h4 e5d6 c6a5 d6d7 e8d7 d4d5 b7c6 d5c6 d7e8 c6c7 d8d7 c7c8q d7c8 e1g1 a5c6 d1e1 e8f8 e1e4 c8b8 e4c6 b8c8 c6c8 a8c8 a1e1 f6f5 e1e2 f5f4 f1e1 h8h7 e2e8";
+        let mut board = Board::new();
+        for next_move in moves.split_whitespace() {
+            board = Board::move_piece(&board, next_move.to_string());
+        }
+        println!("{}", board);
+        let next_move = Board::find_next_move(&board, 3);
+        board = Board::move_piece(&board, next_move);
+        println!("{}", board);
+    }
 
     #[test]
     fn create_chess_move() {

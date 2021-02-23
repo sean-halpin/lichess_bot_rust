@@ -58,12 +58,13 @@ async fn play_game(game_id: String) {
                             _ => bot_team = Team::Black,
                         }
                         let game_id = v["id"].as_str().unwrap().to_owned();
+                        println!("{}", v["state"]["moves"].as_str().unwrap());
                         for next_move in v["state"]["moves"].as_str().unwrap().split_whitespace() {
                             board = Board::move_piece(&board, next_move.to_string());
                         }
                         println!("{}", board);
                         if board.next_to_move == bot_team {
-                            let bot_move = Board::find_next_move(&board, 3);
+                            let bot_move = Board::find_next_move(&board, 2);
                             let auth_header_value = format!("Bearer {}", lichess_api_token);
                             let client = reqwest::Client::builder().build().unwrap();
                             let endpoint = format!(
