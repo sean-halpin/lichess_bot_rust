@@ -363,6 +363,7 @@ impl Board {
     }
 
     fn is_own_king_checked(b: &Board, m: &Move) -> bool {
+        // return false;
         let move_string = Location::coords_to_str(
             m.from.column as usize,
             m.from.row as usize,
