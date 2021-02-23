@@ -730,7 +730,11 @@ impl Board {
                 // res.min_by_key(|m| m.unwrap().value).unwrap().unwrap()
             }
         };
-        let all: Vec<isize> = res.clone().into_iter().map(|m| m.value).collect();
+        let all: Vec<String> = res
+            .clone()
+            .into_iter()
+            .map(|m| format!("{}.{}", m.to_algebraic(), m.value))
+            .collect();
         println!("possible move values: {:?}", all);
         println!("who moves: {:?}", b.next_to_move);
         println!("best move value: {:?}", best.value);
