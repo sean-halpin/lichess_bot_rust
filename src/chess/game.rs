@@ -657,7 +657,7 @@ impl Board {
         let node_board = Board::move_piece(&board, node.to_algebraic());
         let valid_moves: Vec<Move> = Board::find_valid_moves(&node_board)
             .into_iter()
-            .filter(|m| !Board::is_own_king_checked(&node_board, m))
+            // .filter(|m| !Board::is_own_king_checked(&node_board, m))
             .collect();
         if maximizing_player {
             let mut value = isize::MIN;
