@@ -64,7 +64,7 @@ async fn play_game(game_id: String) {
                         }
                         println!("{}", board);
                         if board.next_to_move == bot_team {
-                            let bot_move = Board::find_next_move(&board, 2);
+                            let bot_move = Board::find_next_move(&board, 1);
                             let auth_header_value = format!("Bearer {}", lichess_api_token);
                             let client = reqwest::Client::builder().build().unwrap();
                             let endpoint = format!(
@@ -87,7 +87,7 @@ async fn play_game(game_id: String) {
                         }
                         println!("{}", board);
                         if board.next_to_move == bot_team {
-                            let bot_move = Board::find_next_move(&board, 3);
+                            let bot_move = Board::find_next_move(&board, 2);
                             thread::sleep(Duration::from_millis(500));
                             let auth_header_value = format!("Bearer {}", lichess_api_token);
                             let client = reqwest::Client::builder().build().unwrap();

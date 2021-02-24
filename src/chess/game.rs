@@ -363,7 +363,7 @@ impl Board {
     }
 
     fn is_own_king_checked(b: &Board, m: &Move) -> bool {
-        // return false;
+        return false;
         let move_string = Location::coords_to_str(
             m.from.column as usize,
             m.from.row as usize,
@@ -645,18 +645,26 @@ impl Board {
         board: Board,
         node: Move,
         depth: isize,
-        mut alpha: isize,
-        mut beta: isize,
+        a: isize,
+        b: isize,
         maximizing_player: bool,
     ) -> isize {
-        if depth == 0 {
-            return node.value;
-        }
+        let mut alpha = a.clone();
+        let mut beta = b.clone();
         let node_board = Board::move_piece(&board, node.to_algebraic());
         let mut valid_moves: Vec<Move> = Board::find_valid_moves(&node_board)
             .into_iter()
             // .filter(|m| !Board::is_own_king_checked(&node_board, m))
             .collect();
+        let max_val = valid_moves
+            .clone()
+            .into_iter()
+            .map(|m| m.value)
+            .max()
+            .unwrap();
+        if depth == 0 {
+            return max_val;
+        }
         valid_moves.sort_by(|a, b| a.value.cmp(&b.value));
         if maximizing_player {
             let mut value = isize::MIN;
@@ -667,11 +675,11 @@ impl Board {
                     Board::alphabeta(child_board, child, depth - 1, alpha, beta, false),
                 );
                 alpha = cmp::max(alpha, value);
-                if alpha >= beta {
+                if beta <= alpha {
                     break;
                 }
             }
-            return value;
+            return value + max_val;
         } else {
             let mut value = isize::MAX;
             for child in valid_moves.into_iter() {
@@ -685,12 +693,12 @@ impl Board {
                     break;
                 }
             }
-            return value;
+            return value + max_val;
         }
     }
 
     pub fn choose_next_move(b: Board, moves: Vec<Move>, _depth: isize) -> String {
-        let res = moves.into_iter().map(|m| {
+        let res = moves.clone().into_iter().map(|m| {
             Move::new(
                 m.from,
                 m.to,
@@ -708,7 +716,7 @@ impl Board {
         });
         let best = match b.next_to_move {
             Team::White => {
-                let max_val = res.clone().into_iter().map(|m| m.value).max().unwrap_or(0);
+                let max_val = res.clone().into_iter().map(|m| m.value).max().unwrap();
                 let best_moves: Vec<Move> = res
                     .clone()
                     .into_iter()
@@ -721,9 +729,10 @@ impl Board {
                     .filter(|m| m.captured.is_some())
                     .collect();
                 if best_moves_capture.len() > 0 {
-                    let index =
-                        (rand::random::<f32>() * best_moves_capture.len() as f32).floor() as usize;
-                    best_moves_capture[index]
+                    best_moves_capture
+                        .into_iter()
+                        .max_by_key(|m| m.captured.unwrap().valuation(Team::White))
+                        .unwrap()
                 } else {
                     let index = (rand::random::<f32>() * best_moves.len() as f32).floor() as usize;
                     best_moves[index]
@@ -731,7 +740,7 @@ impl Board {
                 // res.max_by_key(|m| m.unwrap().value).unwrap().unwrap()
             }
             Team::Black => {
-                let min_val = res.clone().into_iter().map(|m| m.value).min().unwrap_or(0);
+                let min_val = res.clone().into_iter().map(|m| m.value).min().unwrap();
                 let best_moves: Vec<Move> = res
                     .clone()
                     .into_iter()
@@ -744,9 +753,10 @@ impl Board {
                     .filter(|m| m.captured.is_some())
                     .collect();
                 if best_moves_capture.len() > 0 {
-                    let index =
-                        (rand::random::<f32>() * best_moves_capture.len() as f32).floor() as usize;
-                    best_moves_capture[index]
+                    best_moves_capture
+                        .into_iter()
+                        .min_by_key(|m| m.captured.unwrap().valuation(Team::Black))
+                        .unwrap()
                 } else {
                     let index = (rand::random::<f32>() * best_moves.len() as f32).floor() as usize;
                     best_moves[index]
@@ -819,15 +829,87 @@ impl std::fmt::Display for Board {
 mod tests {
     use super::*;
 
+    // f4h5
     #[test]
-    fn create_situation() {
+    fn create_possible_checkmate_situation() {
+        let moves = "";
+        let mut board = Board::new();
+        for next_move in moves.split_whitespace() {
+            board = Board::move_piece(&board, next_move.to_string());
+        }
+        println!("{}", board);
+        let (c1, r1, c2, r2) = Location::str_to_coords("".to_string());
+        let next_move = Move::new(
+            Location::new(r1 as isize, c1 as isize),
+            Location::new(r2 as isize, c2 as isize),
+            Some(Rank::Pawn),
+            1,
+        )
+        .unwrap();
+        let result = Board::alphabeta(
+            board.clone(),
+            next_move,
+            1,
+            isize::MIN,
+            isize::MAX,
+            board.next_to_move == Team::White,
+        );
+        println!("alphabeta {}", result);
+        board = Board::move_piece(&board, next_move.to_algebraic());
+        println!("{}", board);
+    }
+
+    #[test]
+    fn create_alpha_beta_situation() {
+        let moves = "e2e4 e7e6 d2d4 f8c5 d4c5 c7c6 c1g5 d8g5 g1f3 g5c5 b2b4 c5b4 d1d2";
+        let mut board = Board::new();
+        for next_move in moves.split_whitespace() {
+            board = Board::move_piece(&board, next_move.to_string());
+        }
+        println!("{}", board);
+        let (c1, r1, c2, r2) = Location::str_to_coords("b4e4".to_string());
+        let next_move = Move::new(
+            Location::new(r1 as isize, c1 as isize),
+            Location::new(r2 as isize, c2 as isize),
+            Some(Rank::Pawn),
+            1,
+        )
+        .unwrap();
+        let result = Board::alphabeta(
+            board.clone(),
+            next_move,
+            5,
+            isize::MIN,
+            isize::MAX,
+            board.next_to_move == Team::White,
+        );
+        println!("alphabeta {}", result);
+        board = Board::move_piece(&board, next_move.to_algebraic());
+        println!("{}", board);
+    }
+
+    #[test]
+    fn create_queen_trade_situation() {
+        let moves = "e2e4 e7e6 d2d4 f8c5 d4c5 c7c6 c1g5 d8g5 g1f3 g5c5 b2b4 c5b4 d1d2";
+        let mut board = Board::new();
+        for next_move in moves.split_whitespace() {
+            board = Board::move_piece(&board, next_move.to_string());
+        }
+        println!("{}", board);
+        let next_move = Board::find_next_move(&board, 1);
+        board = Board::move_piece(&board, next_move);
+        println!("{}", board);
+    }
+
+    #[test]
+    fn create_rook_trade_situation() {
         let moves = "e2e4 b7b6 d2d4 g8h6 b1c3 g7g6 g1f3 d7d6 f1b5 c7c6 b5c6 b8c6 c1h6 c8b7 h6f8 h7h5 f3g5 h8f8 g5h7 f8h8 h7f6 e7f6 e4e5 h5h4 e5d6 c6a5 d6d7 e8d7 d4d5 b7c6 d5c6 d7e8 c6c7 d8d7 c7c8q d7c8 e1g1 a5c6 d1e1 e8f8 e1e4 c8b8 e4c6 b8c8 c6c8 a8c8 a1e1 f6f5 e1e2 f5f4 f1e1 h8h7 e2e8";
         let mut board = Board::new();
         for next_move in moves.split_whitespace() {
             board = Board::move_piece(&board, next_move.to_string());
         }
         println!("{}", board);
-        let next_move = Board::find_next_move(&board, 3);
+        let next_move = Board::find_next_move(&board, 0);
         board = Board::move_piece(&board, next_move);
         println!("{}", board);
     }
