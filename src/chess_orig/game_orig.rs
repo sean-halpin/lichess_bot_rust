@@ -61,24 +61,18 @@ impl Piece {
 
 impl std::fmt::Display for Piece {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.team {
-            Team::White => match self.rank {
-                Rank::King => write!(f, "{}", "K".green()),
-                Rank::Queen => write!(f, "{}", "Q".green()),
-                Rank::Rook => write!(f, "{}", "R".green()),
-                Rank::Knight => write!(f, "{}", "N".green()),
-                Rank::Bishop => write!(f, "{}", "B".green()),
-                Rank::Pawn => write!(f, "{}", "P".green()),
-            },
-            Team::Black => match self.rank {
-                Rank::King => write!(f, "{}", "K".red()),
-                Rank::Queen => write!(f, "{}", "Q".red()),
-                Rank::Rook => write!(f, "{}", "R".red()),
-                Rank::Knight => write!(f, "{}", "N".red()),
-                Rank::Bishop => write!(f, "{}", "B".red()),
-                Rank::Pawn => write!(f, "{}", "P".red()),
-            },
-        }
+        let team_print = |s: &str| match self.team {
+            Team::White => s.green(),
+            Team::Black => s.red(),
+        };
+        return match self.rank {
+            Rank::King => write!(f, "{}", team_print("K")),
+            Rank::Queen => write!(f, "{}", team_print("Q")),
+            Rank::Rook => write!(f, "{}", team_print("R")),
+            Rank::Knight => write!(f, "{}", team_print("N")),
+            Rank::Bishop => write!(f, "{}", team_print("B")),
+            Rank::Pawn => write!(f, "{}", team_print("P")),
+        };
     }
 }
 
@@ -363,7 +357,6 @@ impl Board {
     }
 
     fn is_own_king_checked(b: &Board, m: &Move) -> bool {
-        return false;
         let move_string = Location::coords_to_str(
             m.from.column as usize,
             m.from.row as usize,
