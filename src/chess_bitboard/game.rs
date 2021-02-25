@@ -68,10 +68,19 @@ impl ChessEngine {
         };
     }
     pub fn find_next_move(b: &ChessEngine, depth: isize) -> ChessMove {
-        let iterable = MoveGen::new_legal(&b.bitboard);
+        let mut iterable = MoveGen::new_legal(&b.bitboard);
+        let targets = b.bitboard.color_combined(!b.bitboard.side_to_move());
+        iterable.set_iterator_mask(*targets);
         let moves = iterable.collect::<Vec<ChessMove>>();
-        let index = (rand::random::<f32>() * moves.len() as f32).floor() as usize;
-        return moves[index];
+        if moves.len() > 0 {
+            let index = (rand::random::<f32>() * moves.len() as f32).floor() as usize;
+            return moves[index];
+        } else {
+            iterable = MoveGen::new_legal(&b.bitboard);
+            let moves = iterable.collect::<Vec<ChessMove>>();
+            let index = (rand::random::<f32>() * moves.len() as f32).floor() as usize;
+            return moves[index];
+        }
     }
 }
 
